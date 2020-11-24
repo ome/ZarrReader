@@ -27,7 +27,10 @@ package loci.formats.in;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +38,7 @@ import java.util.Set;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
+import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -419,6 +423,23 @@ public class ZarrReader extends FormatReader {
         resSeries.put(resCounts.size() - 1, list);
       }
     }
+  }
+  
+  /* @see loci.formats.IFormatReader#getUsedFiles(boolean) */
+  @Override
+  public String[] getUsedFiles(boolean noPixels) {
+    FormatTools.assertId(currentId, true, 1);
+    String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
+    ArrayList<String> usedFiles = new ArrayList<String>();
+    usedFiles.add(zarrRootPath);
+    File folder = new File(zarrRootPath);
+    Collection<File> libs = FileUtils.listFiles(folder, null, true);
+    for (File file : libs) {
+      usedFiles.add(file.getAbsolutePath());
+  }
+    String[] fileArr = new String[usedFiles.size()];
+    fileArr = usedFiles.toArray(fileArr);
+    return fileArr;
   }
 
 }
