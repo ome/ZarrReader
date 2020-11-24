@@ -1,8 +1,5 @@
 package loci.formats;
 
-
-import com.amazonaws.services.s3.AmazonS3URI;
-import com.amazonaws.util.IOUtils;
 import com.bc.zarr.ZarrConstants;
 import com.bc.zarr.ZarrUtils;
 import com.bc.zarr.storage.Store;
@@ -11,8 +8,6 @@ import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.ResponseInputStream;
-import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
-import software.amazon.awssdk.core.client.config.SdkClientOption;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -22,7 +17,6 @@ import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,7 +29,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 
 public class S3FileSystemStore implements Store {
 
@@ -79,12 +72,6 @@ public class S3FileSystemStore implements Store {
             .credentialsProvider(StaticCredentialsProvider.create(credentials)).build();
           GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucketName).key(key2).build();
           ResponseInputStream<GetObjectResponse> responseStream = client.getObject(getRequest, ResponseTransformer.toInputStream());
-        
-          //TODO: Test if can be removed 
-//          ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-//          IOUtils.copy(responseStream, outputStream);
-//          byte[] array = outputStream.toByteArray();
-       
           responseStream = client.getObject(getRequest, ResponseTransformer.toInputStream());
           return responseStream;
         } catch (URISyntaxException e) {
