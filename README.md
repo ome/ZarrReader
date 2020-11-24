@@ -1,6 +1,7 @@
 # ZarrReader
 
 Requires custom jzarr: https://github.com/dgault/jzarr/tree/ome-zarr
+
 Requires Bio-Formats update to add reader: https://github.com/ome/bioformats/pull/3639
 
 Known Issues/TODO list:
