@@ -56,8 +56,7 @@ import loci.formats.FormatException;
 import loci.formats.FormatReader;
 import loci.formats.FormatTools;
 import loci.formats.MetadataTools;
-import loci.formats.MissingLibraryException;
-import loci.formats.SubResolutionFormatReader;
+import loci.formats.S3FileSystemStore;
 import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.JZarrServiceImpl;
@@ -116,7 +115,7 @@ public class ZarrReader extends FormatReader {
     String name = zarrRootPath.substring(zarrRootPath.lastIndexOf(File.separator)+1, zarrRootPath.length() - 5);
     Location omeMetaFile = new Location( zarrRootPath, name+".ome.xml" );
     
-    initializeZarrService(zarrPath);
+    initializeZarrService(zarrRootPath);
     
     /*
      * Open OME metadata file
@@ -202,7 +201,6 @@ public class ZarrReader extends FormatReader {
       MetadataConverter.convertMetadata( omexmlMeta, store );
     }
     else {
-
       // Parse base level attributes
       Map<String, Object> attr = zarrService.getGroupAttr(zarrRootPath);
       int attrIndex = 0;
@@ -303,7 +301,7 @@ public class ZarrReader extends FormatReader {
 
   // -- Helper methods --
 
-  private void initializeZarrService(String id) throws IOException, FormatException {
+  private void initializeZarrService(String rootPath) throws IOException, FormatException {
 //    try {
 //      ServiceFactory factory = new ServiceFactory();
 //      zarrService = factory.getInstance(ZarrService.class);
@@ -311,7 +309,7 @@ public class ZarrReader extends FormatReader {
 //    } catch (DependencyException e) {
 //      throw new MissingLibraryException(ZarrServiceImpl.NO_ZARR_MSG, e);
 //    }
-    zarrService = new JZarrServiceImpl();
+    zarrService = new JZarrServiceImpl(rootPath);
     openZarr();
   }
   
@@ -426,20 +424,32 @@ public class ZarrReader extends FormatReader {
   }
   
   /* @see loci.formats.IFormatReader#getUsedFiles(boolean) */
-//  @Override
-//  public String[] getUsedFiles(boolean noPixels) {
-//    FormatTools.assertId(currentId, true, 1);
-//    String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
-//    ArrayList<String> usedFiles = new ArrayList<String>();
-//    usedFiles.add(zarrRootPath);
-//    File folder = new File(zarrRootPath);
-//    Collection<File> libs = FileUtils.listFiles(folder, null, true);
-//    for (File file : libs) {
-//      usedFiles.add(file.getAbsolutePath());
-//  }
-//    String[] fileArr = new String[usedFiles.size()];
-//    fileArr = usedFiles.toArray(fileArr);
-//    return fileArr;
-//  }
+  @Override
+  public String[] getUsedFiles(boolean noPixels) {
+    
+    FormatTools.assertId(currentId, true, 1);
+    String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
+    ArrayList<String> usedFiles = new ArrayList<String>();
+    if (!zarrRootPath.toLowerCase().contains("s3:")) {
+      usedFiles.add(zarrRootPath);
+      File folder = new File(zarrRootPath);
+      Collection<File> libs = FileUtils.listFiles(folder, null, true);
+      for (File file : libs) {
+        usedFiles.add(file.getAbsolutePath());
+        System.out.println(file.getAbsolutePath());
+      }
+    }
+    else {
+      try {
+        usedFiles.addAll(new S3FileSystemStore(Paths.get(zarrRootPath)).getFiles());
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
+    }
+    String[] fileArr = new String[usedFiles.size()];
+    fileArr = usedFiles.toArray(fileArr);
+    return fileArr;
+  }
 
 }
