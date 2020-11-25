@@ -1,5 +1,6 @@
 package loci.formats;
 
+//import com.amazonaws.ClientConfiguration;
 import com.bc.zarr.ZarrConstants;
 import com.bc.zarr.ZarrUtils;
 import com.bc.zarr.storage.Store;
@@ -59,7 +60,7 @@ public class S3FileSystemStore implements Store {
         String key2 = root.toString().substring(root.toString().indexOf(pathSplit[3]), root.toString().length()) + File.separator + key;
 
         URI endpoint_uri;
-        try {
+        try {   
           endpoint_uri = new URI(endpoint);
           final S3Configuration config = S3Configuration.builder()
             .pathStyleAccessEnabled(true)
@@ -79,7 +80,7 @@ public class S3FileSystemStore implements Store {
           e.printStackTrace();
         } catch (Exception e) {
           // TODO Auto-generated catch block
-          e.printStackTrace();
+          //e.printStackTrace();
         }  
       }
       return null;
