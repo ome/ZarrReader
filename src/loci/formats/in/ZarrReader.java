@@ -426,20 +426,20 @@ public class ZarrReader extends FormatReader {
   }
   
   /* @see loci.formats.IFormatReader#getUsedFiles(boolean) */
-  @Override
-  public String[] getUsedFiles(boolean noPixels) {
-    FormatTools.assertId(currentId, true, 1);
-    String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
-    ArrayList<String> usedFiles = new ArrayList<String>();
-    usedFiles.add(zarrRootPath);
-    File folder = new File(zarrRootPath);
-    Collection<File> libs = FileUtils.listFiles(folder, null, true);
-    for (File file : libs) {
-      usedFiles.add(file.getAbsolutePath());
-  }
-    String[] fileArr = new String[usedFiles.size()];
-    fileArr = usedFiles.toArray(fileArr);
-    return fileArr;
-  }
+//  @Override
+//  public String[] getUsedFiles(boolean noPixels) {
+//    FormatTools.assertId(currentId, true, 1);
+//    String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
+//    ArrayList<String> usedFiles = new ArrayList<String>();
+//    usedFiles.add(zarrRootPath);
+//    File folder = new File(zarrRootPath);
+//    Collection<File> libs = FileUtils.listFiles(folder, null, true);
+//    for (File file : libs) {
+//      usedFiles.add(file.getAbsolutePath());
+//  }
+//    String[] fileArr = new String[usedFiles.size()];
+//    fileArr = usedFiles.toArray(fileArr);
+//    return fileArr;
+//  }
 
 }
