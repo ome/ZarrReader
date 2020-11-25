@@ -28,12 +28,14 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
 
 public class S3FileSystemStore implements Store {
 
     private Path root;
+    S3Client client;
 
     public S3FileSystemStore(String path, FileSystem fileSystem) {
         if (fileSystem == null) {
@@ -41,48 +43,65 @@ public class S3FileSystemStore implements Store {
         } else {
             root = fileSystem.getPath(path);
         }
+        setupClient();
+    }
+    
+    public void updateRoot(String path) {
+      root = Paths.get(path);
+    }
+
+    private void setupClient() {
+      String[] pathSplit = root.toString().split(File.separator);
+      String endpoint = "https://" + pathSplit[1] + File.separator;
+      URI endpoint_uri;
+      try {   
+        endpoint_uri = new URI(endpoint);
+        final S3Configuration config = S3Configuration.builder()
+          .pathStyleAccessEnabled(true)
+          .build();
+        AwsCredentials credentials = AnonymousCredentialsProvider.create().resolveCredentials();
+        client = S3Client.builder()
+          .endpointOverride(endpoint_uri)
+          .serviceConfiguration(config)
+          .region(Region.EU_WEST_1) // Ignored but required by the client
+          .credentialsProvider(StaticCredentialsProvider.create(credentials)).build();
+
+      } catch (URISyntaxException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      } catch (Exception e) {
+        // TODO Auto-generated catch block
+        //e.printStackTrace();
+      } 
+      
+    }
+    
+    public void close() {
+      if (client != null) {
+        client.close();
+      }
     }
 
     public S3FileSystemStore(Path rootPath) {
         root = rootPath;
+        setupClient();
     }
 
     @Override
     public InputStream getInputStream(String key) throws IOException {
-        final Path path = root.resolve(key);
-        if (Files.isReadable(path)) {
-            return Files.newInputStream(path);
-        } else {
-        
         String[] pathSplit = root.toString().split(File.separator);
-        String endpoint = "https://" + pathSplit[1] + File.separator;
         String bucketName =  pathSplit[2];
         String key2 = root.toString().substring(root.toString().indexOf(pathSplit[3]), root.toString().length()) + File.separator + key;
 
-        URI endpoint_uri;
         try {   
-          endpoint_uri = new URI(endpoint);
-          final S3Configuration config = S3Configuration.builder()
-            .pathStyleAccessEnabled(true)
-            .build();
-          AwsCredentials credentials = AnonymousCredentialsProvider.create().resolveCredentials();
-          S3Client client = S3Client.builder()
-            .endpointOverride(endpoint_uri)
-            .serviceConfiguration(config)
-            .region(Region.EU_WEST_1) // Ignored but required by the client
-            .credentialsProvider(StaticCredentialsProvider.create(credentials)).build();
           GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucketName).key(key2).build();
           ResponseInputStream<GetObjectResponse> responseStream = client.getObject(getRequest, ResponseTransformer.toInputStream());
-          responseStream = client.getObject(getRequest, ResponseTransformer.toInputStream());
           return responseStream;
-        } catch (URISyntaxException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
         } catch (Exception e) {
           // TODO Auto-generated catch block
           //e.printStackTrace();
-        }  
-      }
+        }
+
       return null;
     }
 
@@ -123,44 +142,52 @@ public class S3FileSystemStore implements Store {
       
       String[] pathSplit = root.toString().split(File.separator);
       
-      String endpoint = "https://" + pathSplit[1] + File.separator;
       String bucketName =  pathSplit[2];
       String key2 = root.toString().substring(root.toString().indexOf(pathSplit[3]), root.toString().length());
-  
-      //TODO: Reused connection code
-      URI endpoint_uri;
-      try {
-        endpoint_uri = new URI(endpoint);
-  
-        final S3Configuration config = S3Configuration.builder()
-          .pathStyleAccessEnabled(true)
-          .build();
-        AwsCredentials credentials = AnonymousCredentialsProvider.create().resolveCredentials();
-        S3Client client = S3Client.builder()
-          .endpointOverride(endpoint_uri)
-          .serviceConfiguration(config)
-          .region(Region.EU_WEST_1) // Ignored but required by the client
-          .credentialsProvider(StaticCredentialsProvider.create(credentials)).build();
-        List<S3Object> list = client.listObjects(ListObjectsRequest.builder()
-          .bucket(bucketName)
-          .prefix(key2)
-          .build()).contents();
-        int n = list.size();
 
-        for (int i = 0; i < n; i++) {
-          S3Object object = list.get(i);
-          String k = object.key();
-          if (k.contains(suffix)) {
-            String key = k.substring(k.indexOf(key2) + key2.length() + 1, k.indexOf(suffix));
-            if (!key.isEmpty()) {
-              keys.add(key.substring(0, key.length()-1));
-            }
+      List<S3Object> list = client.listObjects(ListObjectsRequest.builder()
+        .bucket(bucketName)
+        .prefix(key2)
+        .build()).contents();
+      int n = list.size();
+
+      for (int i = 0; i < n; i++) {
+        S3Object object = list.get(i);
+        String k = object.key();
+        if (k.contains(suffix)) {
+          String key = k.substring(k.indexOf(key2) + key2.length() + 1, k.indexOf(suffix));
+          if (!key.isEmpty()) {
+            keys.add(key.substring(0, key.length()-1));
           }
         }
-      } catch (URISyntaxException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
       }
+      
       return keys;
     }
+    
+    public ArrayList<String> getFiles() throws IOException {
+      ArrayList<String> keys = new ArrayList<String>();
+      
+      String[] pathSplit = root.toString().split(File.separator);
+      String bucketName =  pathSplit[2];
+      String key2 = root.toString().substring(root.toString().indexOf(pathSplit[3]), root.toString().length());
+
+      List<S3Object> list = client.listObjects(ListObjectsRequest.builder()
+        .bucket(bucketName)
+        .prefix(key2)
+        .build()).contents();
+      int n = list.size();
+
+      for (int i = 0; i < n; i++) {
+        S3Object object = list.get(i);
+        String k = object.key();
+          String key = k.substring(k.indexOf(key2) + key2.length() + 1, k.length());
+          if (!key.isEmpty()) {
+            keys.add(key.substring(0, key.length()-1));
+          }
+        }
+      return keys;
+    }
+    
+    
 }

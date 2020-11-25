@@ -34,6 +34,7 @@ implements ZarrService  {
 
   // -- Fields --
   ZarrArray zarrArray;
+  S3FileSystemStore s3fs;
   String currentId;
   Compressor zlibComp = CompressorFactory.create("zlib", 8);  // 8 = compression level .. valid values 0 .. 9
   Compressor nullComp = CompressorFactory.create("null", 0);
@@ -41,8 +42,11 @@ implements ZarrService  {
   /**
    * Default constructor.
    */
-  public JZarrServiceImpl() {
+  public JZarrServiceImpl(String root) {
       checkClassDependency(com.bc.zarr.ZarrArray.class);
+      if (root.toLowerCase().contains("s3:")) {
+        s3fs = new S3FileSystemStore(Paths.get(root));
+      }
   }
   
   @Override
@@ -53,7 +57,8 @@ implements ZarrService  {
     zarrArray = ZarrArray.open(file);
     }
     else {
-      zarrArray = ZarrArray.open(new S3FileSystemStore(Paths.get(file)));
+      s3fs.updateRoot(file);
+      zarrArray = ZarrArray.open(s3fs);
     }
   }
   
@@ -63,7 +68,8 @@ implements ZarrService  {
       group = ZarrGroup.open(path);
     }
     else {
-      group = ZarrGroup.open(new S3FileSystemStore(Paths.get(path)));
+      s3fs.updateRoot(path);
+      group = ZarrGroup.open(s3fs);
     }
     return group.getAttributes();
   }
@@ -74,7 +80,8 @@ implements ZarrService  {
       array = ZarrArray.open(path);
     }
     else {
-      array = ZarrArray.open(new S3FileSystemStore(Paths.get(path)));
+      s3fs.updateRoot(path);
+      array = ZarrArray.open(s3fs);
     }
     return array.getAttributes();
   }
@@ -85,7 +92,8 @@ implements ZarrService  {
       group = ZarrGroup.open(path);
     }
     else {
-      group = ZarrGroup.open(new S3FileSystemStore(Paths.get(path)));
+      s3fs.updateRoot(path);
+      group = ZarrGroup.open(s3fs);
     }
     return group.getGroupKeys();
   }
@@ -96,7 +104,8 @@ implements ZarrService  {
       group = ZarrGroup.open(path);
     }
     else {
-      group = ZarrGroup.open(new S3FileSystemStore(Paths.get(path)));
+      s3fs.updateRoot(path);
+      group = ZarrGroup.open(s3fs);
     }
     return group.getArrayKeys();
   }
@@ -201,6 +210,9 @@ implements ZarrService  {
   public void close() throws IOException {
     zarrArray = null;
     currentId = null;
+    if (s3fs != null) {
+      s3fs.close();
+    }
   }
   
   @Override
