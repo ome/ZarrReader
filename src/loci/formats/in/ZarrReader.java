@@ -436,7 +436,6 @@ public class ZarrReader extends FormatReader {
       Collection<File> libs = FileUtils.listFiles(folder, null, true);
       for (File file : libs) {
         usedFiles.add(file.getAbsolutePath());
-        System.out.println(file.getAbsolutePath());
       }
     }
     else {

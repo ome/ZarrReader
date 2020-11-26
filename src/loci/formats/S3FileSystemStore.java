@@ -99,7 +99,7 @@ public class S3FileSystemStore implements Store {
           return responseStream;
         } catch (Exception e) {
           // TODO Auto-generated catch block
-          //e.printStackTrace();
+          e.printStackTrace();
         }
 
       return null;
