@@ -32,10 +32,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class S3FileSystemStore implements Store {
 
     private Path root;
     S3Client client;
+    protected static final Logger LOGGER =
+        LoggerFactory.getLogger(S3FileSystemStore.class);
 
     public S3FileSystemStore(String path, FileSystem fileSystem) {
         if (fileSystem == null) {
@@ -99,6 +104,7 @@ public class S3FileSystemStore implements Store {
           return responseStream;
         } catch (Exception e) {
           // TODO Auto-generated catch block
+          LOGGER.info( "Unable to locate or access key: " + key2);
           e.printStackTrace();
         }
 
