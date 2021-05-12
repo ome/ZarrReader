@@ -36,15 +36,16 @@ implements ZarrService  {
   ZarrArray zarrArray;
   S3FileSystemStore s3fs;
   String currentId;
-  Compressor zlibComp = CompressorFactory.create("zlib", 8);  // 8 = compression level .. valid values 0 .. 9
-  Compressor nullComp = CompressorFactory.create("null", 0);
+  Compressor zlibComp = CompressorFactory.create("zlib", "level", 8);  // 8 = compression level .. valid values 0 .. 9
+  Compressor bloscComp = CompressorFactory.create("blosc", "cname", "lz4hc", "clevel", 7);
+  Compressor nullComp = CompressorFactory.create("null");
   
   /**
    * Default constructor.
    */
   public JZarrServiceImpl(String root) {
       checkClassDependency(com.bc.zarr.ZarrArray.class);
-      if (root.toLowerCase().contains("s3:")) {
+      if (root != null && root.toLowerCase().contains("s3:")) {
         s3fs = new S3FileSystemStore(Paths.get(root));
       }
   }
@@ -54,12 +55,17 @@ implements ZarrService  {
     currentId = file;
     // TODO: Update s3 location identification
     if (!file.toLowerCase().contains("s3:")) {
-    zarrArray = ZarrArray.open(file);
+      zarrArray = ZarrArray.open(file);
     }
     else {
       s3fs.updateRoot(file);
       zarrArray = ZarrArray.open(s3fs);
     }
+  }
+  
+  public void open(String id, ZarrArray array) {
+    currentId = id;
+    zarrArray = array;
   }
   
   public Map<String, Object> getGroupAttr(String path) throws IOException, FormatException {
@@ -110,7 +116,7 @@ implements ZarrService  {
     return group.getArrayKeys();
   }
 
-  private DataType getZarrPixelType(int pixType) {
+  public DataType getZarrPixelType(int pixType) {
     DataType pixelType = null;
       switch(pixType) {
         case FormatTools.INT8:
@@ -141,7 +147,7 @@ implements ZarrService  {
       return(pixelType);
   }
   
-  private int getOMEPixelType(DataType pixType) {
+  public int getOMEPixelType(DataType pixType) {
     int pixelType = -1;
       switch(pixType) {
         case i1:
@@ -202,7 +208,7 @@ implements ZarrService  {
   
   @Override
   public boolean isLittleEndian() {
-    if (zarrArray != null) return (zarrArray.getByteOrder() == ByteOrder.LITTLE_ENDIAN);
+    if (zarrArray != null) return (zarrArray.getByteOrder().equals(ByteOrder.LITTLE_ENDIAN));
     return false;
   }
 
@@ -216,12 +222,12 @@ implements ZarrService  {
   }
   
   @Override
-  public boolean isOpen() throws IOException {
+  public boolean isOpen() {
     return (zarrArray != null && currentId != null);
   }
   
   @Override
-  public String getID() throws IOException {
+  public String getID() {
     return currentId;
   }
 
@@ -316,7 +322,6 @@ implements ZarrService  {
     else {
       zarrArray = ZarrArray.create(file, params);
     }
-
     currentId = file;
   }
   
