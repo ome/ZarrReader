@@ -18,7 +18,7 @@
     <repository>
       <id>bc-nexus-repo</id>
       <name>Brockmann-Consult Public Maven Repository</name>
-      <url>http://nexus.senbox.net/nexus/content/groups/public/</url>
+      <url>https://nexus.senbox.net/nexus/content/groups/public/</url>
     </repository>
     <repository>
       <id>glencoe-jzarr</id>
