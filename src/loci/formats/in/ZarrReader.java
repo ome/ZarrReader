@@ -67,8 +67,8 @@ import loci.formats.services.ZarrService;
 
 public class ZarrReader extends FormatReader {
 
-  private transient ZarrService zarrService;
-  private ArrayList<String> arrayPaths;
+  protected transient ZarrService zarrService;
+  private ArrayList<String> arrayPaths= new ArrayList<String>();
   private HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>();
   private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
   private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
@@ -84,12 +84,24 @@ public class ZarrReader extends FormatReader {
   /* @see loci.formats.IFormatReader#isThisType(String, boolean) */
   @Override
   public boolean isThisType(String name, boolean open) {
-    Location zarrFolder = new Location(name);//.getParentFile();
-    // if (zarrFolder != null && zarrFolder.exists() && zarrFolder.getAbsolutePath().indexOf(".zarr") > 0) {
-    if (zarrFolder != null && zarrFolder.getAbsolutePath().indexOf(".zarr") > 0) {
+    Location zarrFolder = new Location(name);
+    if (zarrFolder != null && zarrFolder.getAbsolutePath().toLowerCase().indexOf(".zarr") > 0) {
       return true;
     }
     return super.isThisType(name, open);
+  }
+  
+  /* @see loci.formats.IFormatReader#close() */
+  @Override
+  public void close() throws IOException {
+    arrayPaths.clear();
+    resSeries.clear();
+    resCounts.clear();
+    resIndexes.clear();
+    if (zarrService != null) {
+      zarrService.close();
+    }
+    super.close();
   }
 
   /* @see loci.formats.IFormatReader#getOptimalTileHeight() */
@@ -111,7 +123,7 @@ public class ZarrReader extends FormatReader {
   protected void initFile(String id) throws FormatException, IOException {
     super.initFile(id);
     final MetadataStore store = makeFilterMetadata();
-    Location zarrFolder = new Location( id ).getParentFile();
+    Location zarrFolder = new Location(id);
     String zarrPath = zarrFolder.getAbsolutePath();
     String zarrRootPath = zarrPath.substring(0, zarrPath.indexOf(".zarr") + 5);
     String name = zarrRootPath.substring(zarrRootPath.lastIndexOf(File.separator)+1, zarrRootPath.length() - 5);
@@ -329,9 +341,8 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  // -- Helper methods --
-
-  private void initializeZarrService(String rootPath) throws IOException, FormatException {
+  protected void initializeZarrService(String rootPath) throws IOException, FormatException {
+//    TODO: ZarrService needs to be added to ServiceFactory but will require a release of ome-common
 //    try {
 //      ServiceFactory factory = new ServiceFactory();
 //      zarrService = factory.getInstance(ZarrService.class);
@@ -408,7 +419,7 @@ public class ZarrReader extends FormatReader {
       if (currentId != null && zarrService != null) {
         String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr")+5);
         String newZarrPath = zarrRootPath;
-        if (arrayPaths != null) {
+        if (arrayPaths != null && !arrayPaths.isEmpty()) {
           newZarrPath += File.separator + arrayPaths.get(series);
           zarrService.open(newZarrPath);
         }
@@ -557,7 +568,7 @@ public class ZarrReader extends FormatReader {
       if (colors != null) {
         for (int c = 0; c < colors.size(); c++) {
           Map<String, Object> color = (Map<String, Object>) colors.get(c);
-          Double labelValue = (Double) color.get("label-value");
+          Integer labelValue = (Integer) color.get("label-value");
           ArrayList<Object> rgba = (ArrayList<Object>) color.get("rgba");
         }
       }
@@ -565,7 +576,7 @@ public class ZarrReader extends FormatReader {
       if (properties != null) {
         for (int p = 0; p < properties.size(); p++) {
           Map<String, Object> prop = (Map<String, Object>) properties.get(p);
-          Double labelValue = (Double) prop.get("label-value");
+          Integer labelValue = (Integer) prop.get("label-value");
           Double area = (Double) prop.get("area (pixels)");
           String propClass = (String) prop.get("class");
         }
@@ -588,7 +599,7 @@ public class ZarrReader extends FormatReader {
     Map<String, Object> attr = zarrService.getGroupAttr(path);
     Map<String, Object> omeroMetadata = (Map<String, Object>) attr.get("omero");
     if (omeroMetadata != null) {
-      Double id = (Double) omeroMetadata.get("id");
+      Integer id = (Integer) omeroMetadata.get("id");
       String name = (String) omeroMetadata.get("name");
       String version = (String) omeroMetadata.get("version");
       ArrayList<Object> channels = (ArrayList<Object>)omeroMetadata.get("channels");
@@ -610,8 +621,8 @@ public class ZarrReader extends FormatReader {
       }
       Map<String, Object> rdefs = (Map<String, Object>)omeroMetadata.get("rdefs");
       if (rdefs != null) {
-        Double defaultT = (Double) rdefs.get("defaultT");
-        Double defaultZ = (Double) rdefs.get("defaultZ");
+        Integer defaultT = (Integer) rdefs.get("defaultT");
+        Integer defaultZ = (Integer) rdefs.get("defaultZ");
         String model = (String) rdefs.get("model");
       }
     }
