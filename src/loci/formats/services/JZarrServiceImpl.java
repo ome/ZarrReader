@@ -36,9 +36,9 @@ implements ZarrService  {
   ZarrArray zarrArray;
   S3FileSystemStore s3fs;
   String currentId;
-  Compressor zlibComp = CompressorFactory.create("zlib", 8);  // 8 = compression level .. valid values 0 .. 9
-  Compressor nullComp = CompressorFactory.create("null", 0);
-  
+  Compressor zlibComp = CompressorFactory.create("zlib", "level", 8);  // 8 = compression level .. valid values 0 .. 9
+  Compressor nullComp = CompressorFactory.create("null", "level", 0);
+
   /**
    * Default constructor.
    */
@@ -48,7 +48,7 @@ implements ZarrService  {
         s3fs = new S3FileSystemStore(Paths.get(root));
       }
   }
-  
+
   @Override
   public void open(String file) throws IOException, FormatException {
     currentId = file;
@@ -61,7 +61,7 @@ implements ZarrService  {
       zarrArray = ZarrArray.open(s3fs);
     }
   }
-  
+
   public Map<String, Object> getGroupAttr(String path) throws IOException, FormatException {
     ZarrGroup group = null;
     if (!path.toLowerCase().contains("s3:")) {
@@ -73,7 +73,7 @@ implements ZarrService  {
     }
     return group.getAttributes();
   }
-  
+
   public Map<String, Object> getArrayAttr(String path) throws IOException, FormatException {
     ZarrArray array = null;
     if (!path.toLowerCase().contains("s3:")) {
@@ -85,7 +85,7 @@ implements ZarrService  {
     }
     return array.getAttributes();
   }
-  
+
   public Set<String> getGroupKeys(String path) throws IOException, FormatException {
     ZarrGroup group = null;
     if (!path.toLowerCase().contains("s3:")) {
@@ -97,7 +97,7 @@ implements ZarrService  {
     }
     return group.getGroupKeys();
   }
-  
+
   public Set<String> getArrayKeys(String path) throws IOException, FormatException {
     ZarrGroup group = null;
     if (!path.toLowerCase().contains("s3:")) {
@@ -140,7 +140,7 @@ implements ZarrService  {
       }
       return(pixelType);
   }
-  
+
   private int getOMEPixelType(DataType pixType) {
     int pixelType = -1;
       switch(pixType) {
@@ -199,7 +199,7 @@ implements ZarrService  {
     if (zarrArray != null) return getOMEPixelType(zarrArray.getDataType());
     return 0;
   }
-  
+
   @Override
   public boolean isLittleEndian() {
     if (zarrArray != null) return (zarrArray.getByteOrder() == ByteOrder.LITTLE_ENDIAN);
@@ -214,12 +214,12 @@ implements ZarrService  {
       s3fs.close();
     }
   }
-  
+
   @Override
   public boolean isOpen() throws IOException {
     return (zarrArray != null && currentId != null);
   }
-  
+
   @Override
   public String getID() throws IOException {
     return currentId;
@@ -253,11 +253,11 @@ implements ZarrService  {
   public void create(String file, MetadataRetrieve meta, int[] chunks, Compression compression) throws IOException {
     int seriesCount = meta.getImageCount();
     int resolutionCount = 1;
-    
+
     ArrayParams params = new ArrayParams();
     params.chunks(chunks);
     params.compressor(nullComp);
-    
+
     boolean isLittleEndian = !meta.getPixelsBigEndian(0);
     if (isLittleEndian) {
       params.byteOrder(ByteOrder.LITTLE_ENDIAN);
@@ -271,7 +271,7 @@ implements ZarrService  {
    // c /= meta.getChannelSamplesPerPixel(0, 0).getValue().intValue();
     int [] shape = {x, y, z, c, t};
     params.shape(shape);
-    
+
     int pixelType = FormatTools.pixelTypeFromString(meta.getPixelsType(0).toString());
     DataType zarrPixelType = getZarrPixelType(pixelType);
     int bytes = FormatTools.getBytesPerPixel(pixelType);
@@ -289,16 +289,16 @@ implements ZarrService  {
       //  c /= meta.getChannelSamplesPerPixel(i, 0).getValue().intValue();
         shape = new int[]{x, y, z, c, t};
         params.shape(shape);
-        
+
         pixelType = FormatTools.pixelTypeFromString(meta.getPixelsType(i).toString());
         zarrPixelType = getZarrPixelType(pixelType);
         params.dataType(zarrPixelType);
-        
+
         isLittleEndian = !meta.getPixelsBigEndian(i);
         if (isLittleEndian) {
           params.byteOrder(ByteOrder.LITTLE_ENDIAN);
         }
-        
+
         if (meta instanceof IPyramidStore) {
           resolutionCount = ((IPyramidStore) meta).getResolutionCount(i);
         }
@@ -306,9 +306,9 @@ implements ZarrService  {
           currentGroup = root.createSubGroup("Series"+i);
           for (int j = 0; j < resolutionCount; j++) {
             zarrArray = currentGroup.createArray("Resolution"+j, params);
-          }  
+          }
         }
-        else { 
+        else {
           zarrArray = currentGroup.createArray("Series"+i, params);
         }
       }
@@ -319,11 +319,11 @@ implements ZarrService  {
 
     currentId = file;
   }
-  
+
   @Override
   public void create(String id, MetadataRetrieve meta, int[] chunks) throws IOException {
     create(id, meta, chunks, Compression.NONE);
   }
 
-  
+
 }
