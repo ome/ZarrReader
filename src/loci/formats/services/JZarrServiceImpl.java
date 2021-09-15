@@ -37,7 +37,7 @@ implements ZarrService  {
   S3FileSystemStore s3fs;
   String currentId;
   Compressor zlibComp = CompressorFactory.create("zlib", "level", 8);  // 8 = compression level .. valid values 0 .. 9
-  Compressor nullComp = CompressorFactory.create("null", "level", 0);
+  Compressor nullComp = CompressorFactory.create("null");
 
   /**
    * Default constructor.
