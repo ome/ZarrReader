@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>ome</groupId>
   <artifactId>OMEZarrReader</artifactId>
-  <version>0.0.1</version>
+  <version>0.1.0-SNAPSHOT</version>
 
   <repositories>
     <repository>
@@ -35,16 +35,16 @@
       <layout>default</layout>
     </pluginRepository>
   </pluginRepositories>
-  
+
   <dependencies>
 
-    
+
 <!--     <dependency> -->
 <!--       <groupId>org.blosc</groupId> -->
 <!--       <artifactId>jblosc</artifactId> -->
 <!--       <version>1.0.1</version> -->
 <!--     </dependency> -->
-        
+
     <dependency>
       <groupId>com.bc.zarr</groupId>
       <artifactId>jzarr</artifactId>
@@ -63,12 +63,6 @@
       <artifactId>testng</artifactId>
       <version>6.8</version>
     </dependency>
-    
-<!--     <dependency> -->
-<!--     <groupId>org.lasersonlab</groupId> -->
-<!--     <artifactId>s3fs</artifactId> -->
-<!--     <version>2.2.3</version> -->
-<!-- </dependency> -->
 
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
@@ -114,16 +108,16 @@
     <dependency>
       <groupId>ome</groupId>
       <artifactId>formats-api</artifactId>
-      <version>6.6.1</version>
+      <version>6.7.0</version>
     </dependency>
     <dependency>
       <groupId>ome</groupId>
       <artifactId>test-suite</artifactId>
-      <version>6.6.1</version>
+      <version>6.7.0</version>
     </dependency>
-    
+
   </dependencies>
-  
+
     <properties>
     <project.rootdir>${basedir}/../..</project.rootdir>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -198,4 +192,16 @@
       </plugin>
     </plugins>
   </build>
+  <distributionManagement>
+    <repository>
+      <id>ome.staging</id>
+      <name>OME Staging Repository</name>
+      <url>https://artifacts.openmicroscopy.org/artifactory/ome.staging</url>
+    </repository>
+    <snapshotRepository>
+      <id>ome.snapshots</id>
+      <name>OME Snapshots Repository</name>
+      <url>https://artifacts.openmicroscopy.org/artifactory/ome.snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
 </project>

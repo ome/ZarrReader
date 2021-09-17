@@ -419,7 +419,7 @@ public class ZarrReader extends FormatReader {
       if (currentId != null && zarrService != null) {
         String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr")+5);
         String newZarrPath = zarrRootPath;
-        if (arrayPaths != null) {
+        if (arrayPaths != null && !arrayPaths.isEmpty()) {
           newZarrPath += File.separator + arrayPaths.get(series);
           zarrService.open(newZarrPath);
         }
@@ -568,7 +568,7 @@ public class ZarrReader extends FormatReader {
       if (colors != null) {
         for (int c = 0; c < colors.size(); c++) {
           Map<String, Object> color = (Map<String, Object>) colors.get(c);
-          Double labelValue = (Double) color.get("label-value");
+          Integer labelValue = (Integer) color.get("label-value");
           ArrayList<Object> rgba = (ArrayList<Object>) color.get("rgba");
         }
       }
@@ -576,7 +576,7 @@ public class ZarrReader extends FormatReader {
       if (properties != null) {
         for (int p = 0; p < properties.size(); p++) {
           Map<String, Object> prop = (Map<String, Object>) properties.get(p);
-          Double labelValue = (Double) prop.get("label-value");
+          Integer labelValue = (Integer) prop.get("label-value");
           Double area = (Double) prop.get("area (pixels)");
           String propClass = (String) prop.get("class");
         }
@@ -599,7 +599,7 @@ public class ZarrReader extends FormatReader {
     Map<String, Object> attr = zarrService.getGroupAttr(path);
     Map<String, Object> omeroMetadata = (Map<String, Object>) attr.get("omero");
     if (omeroMetadata != null) {
-      Double id = (Double) omeroMetadata.get("id");
+      Integer id = (Integer) omeroMetadata.get("id");
       String name = (String) omeroMetadata.get("name");
       String version = (String) omeroMetadata.get("version");
       ArrayList<Object> channels = (ArrayList<Object>)omeroMetadata.get("channels");
@@ -621,8 +621,8 @@ public class ZarrReader extends FormatReader {
       }
       Map<String, Object> rdefs = (Map<String, Object>)omeroMetadata.get("rdefs");
       if (rdefs != null) {
-        Double defaultT = (Double) rdefs.get("defaultT");
-        Double defaultZ = (Double) rdefs.get("defaultZ");
+        Integer defaultT = (Integer) rdefs.get("defaultT");
+        Integer defaultZ = (Integer) rdefs.get("defaultZ");
         String model = (String) rdefs.get("model");
       }
     }
