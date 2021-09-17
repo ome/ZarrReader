@@ -86,7 +86,7 @@
     </dependency>
     <dependency>
       <groupId>ome</groupId>
-      <artifactId>bio-formats-tools</artifactId>
+      <artifactId>formats-api</artifactId>
       <version>6.7.0</version>
     </dependency>
 
