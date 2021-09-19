@@ -11,12 +11,12 @@
  * it under the terms of the GNU General Public License as
  * published by the Free Software Foundation, either version 2 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/gpl-2.0.html>.
@@ -72,7 +72,7 @@ public class ZarrReader extends FormatReader {
   private HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>();
   private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
   private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
-  
+
   private boolean hasSPW = false;
 
   public ZarrReader() {
@@ -80,7 +80,7 @@ public class ZarrReader extends FormatReader {
     suffixSufficient = false;
     domains = new String[] {FormatTools.UNKNOWN_DOMAIN};
   }
-  
+
   /* @see loci.formats.IFormatReader#isThisType(String, boolean) */
   @Override
   public boolean isThisType(String name, boolean open) {
@@ -90,7 +90,7 @@ public class ZarrReader extends FormatReader {
     }
     return super.isThisType(name, open);
   }
-  
+
   /* @see loci.formats.IFormatReader#close() */
   @Override
   public void close() throws IOException {
@@ -110,14 +110,14 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     return zarrService.getChunkSize()[1];
   }
-  
+
   /* @see loci.formats.IFormatReader#getOptimalTileHeight() */
   @Override
   public int getOptimalTileWidth() {
     FormatTools.assertId(currentId, true, 1);
     return zarrService.getChunkSize()[0];
   }
-  
+
   /* @see loci.formats.FormatReader#initFile(String) */
   @Override
   protected void initFile(String id) throws FormatException, IOException {
@@ -128,9 +128,9 @@ public class ZarrReader extends FormatReader {
     String zarrRootPath = zarrPath.substring(0, zarrPath.indexOf(".zarr") + 5);
     String name = zarrRootPath.substring(zarrRootPath.lastIndexOf(File.separator)+1, zarrRootPath.length() - 5);
     Location omeMetaFile = new Location( zarrRootPath, name+".ome.xml" );
-    
+
     initializeZarrService(zarrRootPath);
-    
+
     /*
      * Open OME metadata file
      * TODO: Old code to either be reworked with writer or removed entirely
@@ -150,7 +150,7 @@ public class ZarrReader extends FormatReader {
         }
       }
       omeDocument.getDocumentElement().normalize();
-      
+
       OMEXMLService service = null;
       String xml = null;
       try
@@ -171,17 +171,17 @@ public class ZarrReader extends FormatReader {
       {
         LOGGER.debug( "", e1 );
       }
-  
+
       int numDatasets = omexmlMeta.getImageCount();
-  
+
       int oldSeries = getSeries();
       core.clear();
       for (int i=0; i<numDatasets; i++) {
         CoreMetadata ms = new CoreMetadata();
         core.add(ms);
-  
+
         setSeries(i);
-  
+
         Integer w = omexmlMeta.getPixelsSizeX(i).getValue();
         Integer h = omexmlMeta.getPixelsSizeY(i).getValue();
         Integer t = omexmlMeta.getPixelsSizeT(i).getValue();
@@ -190,7 +190,7 @@ public class ZarrReader extends FormatReader {
         if (w == null || h == null || t == null || z == null | c == null) {
           throw new FormatException("Image dimensions not found");
         }
-  
+
         Boolean endian = null;
         String pixType = omexmlMeta.getPixelsType(i).toString();
         ms.dimensionOrder = omexmlMeta.getPixelsDimensionOrder(i).toString();
@@ -225,14 +225,14 @@ public class ZarrReader extends FormatReader {
         try {
           jsonAttr = ZarrUtils.toJson(attr, true);
           store.setXMLAnnotationValue(jsonAttr, attrIndex);
-          String xml_id = MetadataTools.createLSID("AttributesAnnotation:", attrIndex); 
+          String xml_id = MetadataTools.createLSID("AttributesAnnotation:", attrIndex);
           store.setXMLAnnotationID(xml_id, attrIndex);
         } catch (JZarrException e) {
           LOGGER.warn("Failed to convert attributes to JSON");
           e.printStackTrace();
         }
       }
-            
+
       // Parse group attributes
       for (String key: zarrService.getGroupKeys(zarrRootPath)) {
         Map<String, Object> attributes = zarrService.getGroupAttr(zarrRootPath+File.separator+key);
@@ -245,7 +245,7 @@ public class ZarrReader extends FormatReader {
           try {
             jsonAttr = ZarrUtils.toJson(attributes, true);
             store.setXMLAnnotationValue(jsonAttr, attrIndex);
-            String xml_id = MetadataTools.createLSID("AttributesAnnotation:"+key, attrIndex); 
+            String xml_id = MetadataTools.createLSID("AttributesAnnotation:"+key, attrIndex);
             store.setXMLAnnotationID(xml_id, attrIndex);
           } catch (JZarrException e) {
             LOGGER.warn("Failed to convert attributes to JSON");
@@ -253,7 +253,7 @@ public class ZarrReader extends FormatReader {
           }
         }
       }
-      
+
       // Parse array attributes
       for (String key: zarrService.getArrayKeys(zarrRootPath)) {
         Map<String, Object> attributes = zarrService.getArrayAttr(zarrRootPath+File.separator+key);
@@ -263,7 +263,7 @@ public class ZarrReader extends FormatReader {
           try {
             jsonAttr = ZarrUtils.toJson(attributes, true);
             store.setXMLAnnotationValue(jsonAttr, attrIndex);
-            String xml_id = MetadataTools.createLSID("AttributesAnnotation:"+key, attrIndex); 
+            String xml_id = MetadataTools.createLSID("AttributesAnnotation:"+key, attrIndex);
             store.setXMLAnnotationID(xml_id, attrIndex);
           } catch (JZarrException e) {
             LOGGER.warn("Failed to convert attributes to JSON");
@@ -274,9 +274,9 @@ public class ZarrReader extends FormatReader {
 
       arrayPaths = new ArrayList<String>();
       arrayPaths.addAll(zarrService.getArrayKeys(zarrRootPath));
-      
+
       orderArrayPaths(zarrRootPath);
-      
+
       core.clear();
       int resolutionTotal = 0;
       for (int i=0; i<arrayPaths.size(); i++) {
@@ -288,10 +288,10 @@ public class ZarrReader extends FormatReader {
         if (resIndexes.get(zarrRootPath+File.separator+arrayPaths.get(i)) != null) {
           resolutionIndex = resIndexes.get(zarrRootPath+File.separator+arrayPaths.get(i));
         }
-        
+
         CoreMetadata ms = new CoreMetadata();
         core.add(ms);
-    
+
         if (hasFlattenedResolutions()) {
           setSeries(i);
         }
@@ -305,7 +305,7 @@ public class ZarrReader extends FormatReader {
 
         ms.pixelType = zarrService.getPixelType();
         int[] shape = zarrService.getShape();
-        
+
         ms.sizeX = shape[4];
         ms.sizeY = shape[3];
         ms.sizeT = shape[0];
@@ -353,7 +353,7 @@ public class ZarrReader extends FormatReader {
     zarrService = new JZarrServiceImpl(rootPath);
     openZarr();
   }
-  
+
   @Override
   public byte[] openBytes(int no, byte[] buf, int x, int y, int w, int h) throws FormatException, IOException {
     FormatTools.checkPlaneParameters(this, no, buf.length, x, y, w, h);
@@ -407,13 +407,13 @@ public class ZarrReader extends FormatReader {
     }
     return buf;
   }
-  
+
   @Override
   public void setSeries(int no) {
     super.setSeries(no);
     openZarr();
   }
-  
+
   private void openZarr() {
     try {
       if (currentId != null && zarrService != null) {
@@ -428,7 +428,7 @@ public class ZarrReader extends FormatReader {
       e.printStackTrace();
     }
   }
-  
+
   private void orderArrayPaths(String root) {
     for (int i = 0; i < resSeries.size(); i++) {
       for (String arrayPath: resSeries.get(i)) {
@@ -439,7 +439,7 @@ public class ZarrReader extends FormatReader {
       }
     }
   }
-  
+
   private void parseResolutionCount(String root, String key) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
@@ -462,7 +462,7 @@ public class ZarrReader extends FormatReader {
       }
     }
   }
-  
+
   private void parsePlate(String root, String key, MetadataStore store) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
@@ -477,7 +477,7 @@ public class ZarrReader extends FormatReader {
         ArrayList<Object>  acquistions = (ArrayList<Object> )plates.get("acquisitions");
         String plateName = (String) plates.get("name");
         String fieldCount = (String) plates.get("filed_count");
-        
+
         String plate_id =  MetadataTools.createLSID("Plate", p);
         store.setPlateID(plate_id, p);
         store.setPlateName(plateName, p);
@@ -518,7 +518,7 @@ public class ZarrReader extends FormatReader {
       }
     }
   }
-  
+
   private int parseWells(String root, String key, MetadataStore store, int plateIndex, int wellIndex, int wellSamplesCount) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
@@ -530,8 +530,8 @@ public class ZarrReader extends FormatReader {
         for (int i = 0; i < images.size(); i++) {
           Map<String, Object> image = (Map<String, Object>) images.get(i);
           String imagePath = (String) image.get("path");
-          double acquisition = (double) image.get("acquisition"); 
-          
+          double acquisition = (double) image.get("acquisition");
+
           String site_id = MetadataTools.createLSID("WellSample", wellSamplesCount);
           store.setWellSampleID(site_id, plateIndex, wellIndex, i);
           store.setWellSampleIndex(new NonNegativeInteger(i), plateIndex, wellIndex, i);
@@ -543,7 +543,7 @@ public class ZarrReader extends FormatReader {
     }
     return wellSamplesCount;
   }
-  
+
   private void parseLabels(String root, String key) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
@@ -554,7 +554,7 @@ public class ZarrReader extends FormatReader {
       }
     }
   }
-  
+
   private void parseImageLabels(String root, String key) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
@@ -593,7 +593,7 @@ public class ZarrReader extends FormatReader {
       }
     }
   }
-  
+
   private void parseOmeroMetadata(String root, String key) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
@@ -613,10 +613,10 @@ public class ZarrReader extends FormatReader {
         String channelLabel = (String) channel.get("label");
         Map<String, Object> window = (Map<String, Object>)channel.get("window");
         if (window != null) {
-            Double windowStart = (Double) window.get("start");
-            Double windowEnd = (Double) window.get("end");
-            Double windowMin = (Double) window.get("min");
-            Double windowMax = (Double) window.get("max");
+            Integer windowStart = (Integer) window.get("start");
+            Integer windowEnd = (Integer) window.get("end");
+            Integer windowMin = (Integer) window.get("min");
+            Integer windowMax = (Integer) window.get("max");
         }
       }
       Map<String, Object> rdefs = (Map<String, Object>)omeroMetadata.get("rdefs");
@@ -627,11 +627,11 @@ public class ZarrReader extends FormatReader {
       }
     }
   }
-  
+
   /* @see loci.formats.IFormatReader#getUsedFiles(boolean) */
   @Override
   public String[] getUsedFiles(boolean noPixels) {
-    
+
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
@@ -654,7 +654,7 @@ public class ZarrReader extends FormatReader {
     fileArr = usedFiles.toArray(fileArr);
     return fileArr;
   }
-  
+
   /* @see loci.formats.SubResolutionFormatReader#getDomains() */
   @Override
   public String[] getDomains() {
