@@ -613,10 +613,10 @@ public class ZarrReader extends FormatReader {
         String channelLabel = (String) channel.get("label");
         Map<String, Object> window = (Map<String, Object>)channel.get("window");
         if (window != null) {
-            Integer windowStart = (Integer) window.get("start");
-            Integer windowEnd = (Integer) window.get("end");
-            Integer windowMin = (Integer) window.get("min");
-            Integer windowMax = (Integer) window.get("max");
+            Double windowStart = getDouble(window, "start");
+            Double windowEnd = getDouble(window, "end");
+            Double windowMin = getDouble(window, "min");
+            Double windowMax = getDouble(window, "max");
         }
       }
       Map<String, Object> rdefs = (Map<String, Object>)omeroMetadata.get("rdefs");
@@ -626,6 +626,14 @@ public class ZarrReader extends FormatReader {
         String model = (String) rdefs.get("model");
       }
     }
+  }
+
+  private Double getDouble(Map<String, Object> src, String key) {
+    Number val = (Number) src.get(key);
+    if (val == null) {
+      return null;
+    }
+    return val.doubleValue();
   }
 
   /* @see loci.formats.IFormatReader#getUsedFiles(boolean) */
