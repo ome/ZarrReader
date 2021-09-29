@@ -179,7 +179,6 @@ public class ZarrReader extends FormatReader {
       for (int i=0; i<numDatasets; i++) {
         CoreMetadata ms = new CoreMetadata();
         core.add(ms);
-
         setSeries(i);
 
         Integer w = omexmlMeta.getPixelsSizeX(i).getValue();
@@ -274,7 +273,6 @@ public class ZarrReader extends FormatReader {
 
       arrayPaths = new ArrayList<String>();
       arrayPaths.addAll(zarrService.getArrayKeys(zarrRootPath));
-
       orderArrayPaths(zarrRootPath);
 
       core.clear();
@@ -305,6 +303,9 @@ public class ZarrReader extends FormatReader {
 
         ms.pixelType = zarrService.getPixelType();
         int[] shape = zarrService.getShape();
+        if (shape.length < 5) {
+          shape = get5DShape(shape);
+        }
 
         ms.sizeX = shape[4];
         ms.sizeY = shape[3];
@@ -326,8 +327,39 @@ public class ZarrReader extends FormatReader {
     }
     parsePlate(zarrRootPath, "", store);
     setSeries(0);
-   //hasSPW = store.getPlateCount() > 0;
+  }
 
+  /**
+   * In the event that .zarray does not contain a 5d shape
+   * The dimensions of the original shape will be assumed based on tczyx
+   * @param originalShape as found in .zarray
+   * @return a 5D shape to be used within the reader
+   */
+  private int[] get5DShape(int [] originalShape) {
+    int [] shape = new int[] {1,1,1,1,1};
+    int shapeIndex = 4;
+    for (int s = originalShape.length - 1; s >= 0; s--) {
+      shape[shapeIndex] = originalShape[s];
+      shapeIndex --;
+    }
+    return shape;
+  }
+
+  /**
+   * In the event that .zarray does not contain a 5d shape
+   * The 5D shape will be reduced to match the original representation
+   * @param shape5D - the 5D representation used within this reader
+   * @param size of the shape required by jzarr
+   * @return a 5D shape to be used within the reader
+   */
+  private int[] getOriginalShape(int [] shape5D, int size) {
+    int [] shape = new int[size];
+    int shape5DIndex = 4;
+    for (int s = shape.length - 1; s >= 0; s--) {
+      shape[s] = shape5D[shape5DIndex];
+      shape5DIndex --;
+    }
+    return shape;
   }
 
   /* @see loci.formats.FormatReader#reopenFile() */
@@ -342,14 +374,6 @@ public class ZarrReader extends FormatReader {
   }
 
   protected void initializeZarrService(String rootPath) throws IOException, FormatException {
-//    TODO: ZarrService needs to be added to ServiceFactory but will require a release of ome-common
-//    try {
-//      ServiceFactory factory = new ServiceFactory();
-//      zarrService = factory.getInstance(ZarrService.class);
-//      zarrService.open(id);
-//    } catch (DependencyException e) {
-//      throw new MissingLibraryException(ZarrServiceImpl.NO_ZARR_MSG, e);
-//    }
     zarrService = new JZarrServiceImpl(rootPath);
     openZarr();
   }
@@ -359,7 +383,14 @@ public class ZarrReader extends FormatReader {
     FormatTools.checkPlaneParameters(this, no, buf.length, x, y, w, h);
     int[] coordinates = getZCTCoords(no);
     int [] shape = {1, 1, 1, h, w};
+    int zarrArrayShapeSize = zarrService.getShape().length;
+    if (zarrArrayShapeSize < 5) {
+      shape = getOriginalShape(shape, zarrArrayShapeSize);
+    }
     int [] offsets = {coordinates[2], coordinates[1], coordinates[0], y, x};
+    if (zarrArrayShapeSize < 5) {
+      offsets = getOriginalShape(offsets, zarrArrayShapeSize);
+    }
     Object image = zarrService.readBytes(shape, offsets);
 
     boolean little = zarrService.isLittleEndian();
@@ -460,6 +491,10 @@ public class ZarrReader extends FormatReader {
         list.add(key.isEmpty() ? scalePath : key + File.separator + scalePath);
         resSeries.put(resCounts.size() - 1, list);
       }
+      ArrayList<Object> multiscaleAxes = (ArrayList<Object>)datasets.get("axes");
+      for (int i = 0; i < multiscaleAxes.size(); i++) {
+        String axis = (String) multiscaleAxes.get(i);
+      }
     }
   }
 
@@ -485,8 +520,19 @@ public class ZarrReader extends FormatReader {
         for (int a = 0; a < acquistions.size(); a++) {
           Map<String, Object> acquistion = (Map<String, Object>) acquistions.get(a);
           String acqId = (String) acquistion.get("id");
+          String acqName = (String) acquistion.get("name");
+          String acqStartTime = (String) acquistion.get("starttime");
+          String maximumfieldcount = (String) acquistion.get("maximumfieldcount");
           store.setPlateAcquisitionID(
               MetadataTools.createLSID("PlateAcquisition", p, Integer.parseInt(acqId)), p, Integer.parseInt(acqId));
+        }
+        for (int c = 0; c < columns.size(); c++) {
+          Map<String, Object> column = (Map<String, Object>) columns.get(c);
+          String colName = (String) column.get("name");
+        }
+        for (int r = 0; r < rows.size(); r++) {
+          Map<String, Object> row = (Map<String, Object>) rows.get(r);
+          String rowName = (String) row.get("name");
         }
         for (int w = 0; w < wells.size(); w++) {
           Map<String, Object> well = (Map<String, Object>) wells.get(w);
@@ -582,7 +628,7 @@ public class ZarrReader extends FormatReader {
         }
       }
     }
-    ArrayList<Object> sources = (ArrayList<Object>) attr.get("sources");
+    ArrayList<Object> sources = (ArrayList<Object>) attr.get("source");
     if (sources != null) {
       for (int s = 0; s < sources.size(); s++) {
         Map<String, Object> source = (Map<String, Object>) sources.get(s);
@@ -613,10 +659,10 @@ public class ZarrReader extends FormatReader {
         String channelLabel = (String) channel.get("label");
         Map<String, Object> window = (Map<String, Object>)channel.get("window");
         if (window != null) {
-            Double windowStart = getDouble(window, "start");
-            Double windowEnd = getDouble(window, "end");
-            Double windowMin = getDouble(window, "min");
-            Double windowMax = getDouble(window, "max");
+          Double windowStart = getDouble(window, "start");
+          Double windowEnd = getDouble(window, "end");
+          Double windowMin = getDouble(window, "min");
+          Double windowMax = getDouble(window, "max");
         }
       }
       Map<String, Object> rdefs = (Map<String, Object>)omeroMetadata.get("rdefs");
@@ -639,7 +685,6 @@ public class ZarrReader extends FormatReader {
   /* @see loci.formats.IFormatReader#getUsedFiles(boolean) */
   @Override
   public String[] getUsedFiles(boolean noPixels) {
-
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
