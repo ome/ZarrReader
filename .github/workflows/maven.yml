@@ -32,6 +32,7 @@ jobs:
       - name: Build
         run: mvn ${{ env.maven_commands }}
       - name: Upload JAR as artifact
+        if: matrix.os == 'ubuntu-latest' && matrix.java == '1.8'
         uses: actions/upload-artifact@v2
         with:
           name: ZarrReader
