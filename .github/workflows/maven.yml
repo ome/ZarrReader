@@ -31,6 +31,12 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
       - name: Build
         run: mvn ${{ env.maven_commands }}
+      - name: Upload JAR as artifact
+        if: matrix.os == 'ubuntu-latest' && matrix.java == '1.8'
+        uses: actions/upload-artifact@v2
+        with:
+          name: ZarrReader
+          path: target/*
   deploy:
     if: contains('refs/heads/main', github.ref)
     needs: build
