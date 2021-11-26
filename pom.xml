@@ -118,42 +118,15 @@
 
   </dependencies>
 
-    <properties>
+  <properties>
     <project.rootdir>${basedir}/../..</project.rootdir>
     <maven.compiler.source>1.8</maven.compiler.source>
-   <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.target>1.8</maven.compiler.target>
   </properties>
 
-<!--   <build> -->
-<!--   <sourceDirectory>${project.basedir}/src</sourceDirectory> -->
-<!--     <resources> -->
-<!--     <resource> -->
-<!--       <directory>${project.basedir}/src</directory> -->
-<!--       <excludes> -->
-<!--         <exclude>**/*.java</exclude> -->
-<!--         <exclude>**/package.html</exclude> -->
-<!--         <exclude>**/*.properties</exclude> -->
-<!--       </excludes> -->
-<!--     </resource> -->
-<!--     <resource> -->
-<!--       <directory>${project.basedir}/src</directory> -->
-<!--       <includes> -->
-<!--         <include>**/*.properties</include> -->
-<!--       </includes> -->
-<!--       <filtering>true</filtering> -->
-<!--     </resource> -->
-<!--     <resource> -->
-<!--       <directory>${project.basedir}</directory> -->
-<!--       <includes> -->
-<!--         <include>**/*.cpp</include> -->
-<!--       </includes> -->
-<!--       <filtering>true</filtering> -->
-<!--     </resource> -->
-<!--     </resources> -->
-
-<!--   </build> -->
   <build>
     <sourceDirectory>${project.basedir}/src</sourceDirectory>
+    <testSourceDirectory>${project.basedir}/src/test</testSourceDirectory>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

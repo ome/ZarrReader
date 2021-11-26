@@ -31,6 +31,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -459,6 +460,10 @@ public class ZarrReader extends FormatReader {
         ArrayList<String> list = resSeries.get(resCounts.size() - 1);
         list.add(key.isEmpty() ? scalePath : key + File.separator + scalePath);
         resSeries.put(resCounts.size() - 1, list);
+      }
+      List<String> multiscaleAxes = (List<String>)datasets.get("axes");
+      for (int i = 0; i < multiscaleAxes.size(); i++) {
+        String axis = (String) multiscaleAxes.get(i);
       }
     }
   }
