@@ -8,6 +8,7 @@ import static org.testng.AssertJUnit.assertFalse;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -64,6 +65,7 @@ public class ZarrReaderTest {
     multiscalePaths.add(multiScale2);
     multiscalePaths.add(multiScale3);
     datasets.put("datasets", multiscalePaths);
+    datasets.put("axes", Arrays.asList("t", "c", "z", "y", "x"));
     multiscales.add(datasets);
     topLevelAttributes.put("multiscales", multiscales);
     
