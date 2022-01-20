@@ -20,11 +20,6 @@
       <name>Brockmann-Consult Public Maven Repository</name>
       <url>https://nexus.senbox.net/nexus/content/groups/public/</url>
     </repository>
-    <repository>
-      <id>glencoe-jzarr</id>
-      <name>Glencoe Software JZarr Repository </name>
-      <url>https://repo.glencoesoftware.com/repository/jzarr-snapshots/</url>
-    </repository>
   </repositories>
 
   <pluginRepositories>
@@ -38,26 +33,18 @@
 
   <dependencies>
 
-
-<!--     <dependency> -->
-<!--       <groupId>org.blosc</groupId> -->
-<!--       <artifactId>jblosc</artifactId> -->
-<!--       <version>1.0.1</version> -->
-<!--     </dependency> -->
-
     <dependency>
       <groupId>com.bc.zarr</groupId>
       <artifactId>jzarr</artifactId>
-      <version>0.3.3-gs-SNAPSHOT</version>
-      <!-- <version>0.4-SNAPSHOT</version>-->
+      <version>0.3.4</version>
     </dependency>
-    
+
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-inline</artifactId>
       <version>3.7.7</version>
     </dependency>
-    
+
     <dependency>
       <groupId>org.testng</groupId>
       <artifactId>testng</artifactId>
@@ -122,6 +109,7 @@
     <project.rootdir>${basedir}/../..</project.rootdir>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
   <build>
@@ -131,12 +119,18 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.0.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.0.0</version>
       </plugin>
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
-          <appendAssemblyId>false</appendAssemblyId>
-
+          <attach>false</attach>
+          <appendAssemblyId>true</appendAssemblyId>
           <archive>
             <manifest>
               <mainClass>loci.formats.in.ZarrReader</mainClass>
@@ -150,8 +144,8 @@
             </manifestEntries>
           </archive>
           <descriptorRefs>
-          <descriptorRef>jar-with-dependencies</descriptorRef>
-        </descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
         </configuration>
         <executions>
           <execution>

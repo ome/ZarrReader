@@ -1,6 +1,5 @@
 package loci.formats;
 
-//import com.amazonaws.ClientConfiguration;
 import com.bc.zarr.ZarrConstants;
 import com.bc.zarr.ZarrUtils;
 import com.bc.zarr.storage.Store;
@@ -26,11 +25,14 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -141,6 +143,39 @@ public class S3FileSystemStore implements Store {
     @Override
     public TreeSet<String> getGroupKeys() throws IOException {
         return getKeysFor(ZarrConstants.FILENAME_DOT_ZGROUP);
+    }
+
+    /**
+     * Copied from {@com.bc.zarr.storage.FileSystemStorage#getKeysEndingWith(String).
+     *
+     * @param suffix
+     * @return
+     * @throws IOException
+     */
+    public TreeSet<String> getKeysEndingWith(String suffix) throws IOException {
+        return (TreeSet)Files.walk(this.root).filter((path) -> {
+            return path.toString().endsWith(suffix);
+        }).map((path) -> {
+            return this.root.relativize(path).toString();
+        }).collect(Collectors.toCollection(TreeSet::new));
+    }
+
+    /**
+     * Copied from {@com.bc.zarr.storage.FileSystemStorage#getRelativeLeafKeys(String).
+     *
+     * @param key
+     * @return
+     * @throws IOException
+     */
+    public Stream<String> getRelativeLeafKeys(String key) throws IOException {
+        Path walkingRoot = this.root.resolve(key);
+        return Files.walk(walkingRoot).filter((path) -> {
+            return !Files.isDirectory(path, new LinkOption[0]);
+        }).map((path) -> {
+            return walkingRoot.relativize(path).toString();
+        }).map(ZarrUtils::normalizeStoragePath).filter((s) -> {
+            return s.trim().length() > 0;
+        });
     }
 
     private TreeSet<String> getKeysFor(String suffix) throws IOException {
