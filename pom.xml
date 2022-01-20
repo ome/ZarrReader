@@ -20,11 +20,6 @@
       <name>Brockmann-Consult Public Maven Repository</name>
       <url>https://nexus.senbox.net/nexus/content/groups/public/</url>
     </repository>
-    <repository>
-      <id>glencoe-jzarr</id>
-      <name>Glencoe Software JZarr Repository </name>
-      <url>https://repo.glencoesoftware.com/repository/jzarr-snapshots/</url>
-    </repository>
   </repositories>
 
   <pluginRepositories>
@@ -41,8 +36,7 @@
     <dependency>
       <groupId>com.bc.zarr</groupId>
       <artifactId>jzarr</artifactId>
-      <version>0.3.3-gs-SNAPSHOT</version>
-      <!-- <version>0.4-SNAPSHOT</version>-->
+      <version>0.3.4</version>
     </dependency>
 
     <dependency>
