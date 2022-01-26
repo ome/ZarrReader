@@ -694,7 +694,9 @@ public class ZarrReader extends FormatReader {
       File folder = new File(zarrRootPath);
       Collection<File> libs = FileUtils.listFiles(folder, null, true);
       for (File file : libs) {
-        usedFiles.add(file.getAbsolutePath());
+        if (!file.isDirectory()) {
+          usedFiles.add(file.getAbsolutePath());
+        }
       }
     }
     else {
