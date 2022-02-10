@@ -37,6 +37,7 @@ import java.util.Map;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
@@ -73,6 +74,7 @@ public class ZarrReader extends FormatReader {
   private HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>();
   private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
   private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
+  private String dimensionOrder = "XYCZT";
 
   private boolean hasSPW = false;
 
@@ -313,7 +315,7 @@ public class ZarrReader extends FormatReader {
         ms.sizeT = shape[0];
         ms.sizeZ = shape[2];
         ms.sizeC = shape[1];
-        ms.dimensionOrder = "XYCZT";
+        ms.dimensionOrder = dimensionOrder;
         ms.imageCount = getSizeZ() * getSizeC() * getSizeT();
         ms.littleEndian = zarrService.isLittleEndian();
         ms.rgb = false;
@@ -492,9 +494,35 @@ public class ZarrReader extends FormatReader {
         list.add(key.isEmpty() ? scalePath : key + File.separator + scalePath);
         resSeries.put(resCounts.size() - 1, list);
       }
-      List<String> multiscaleAxes = (List<String>)datasets.get("axes");
-      for (int i = 0; i < multiscaleAxes.size(); i++) {
-        String axis = (String) multiscaleAxes.get(i);
+      List<Object> multiscaleAxes = (List<Object>)datasets.get("axes");
+      if (multiscaleAxes != null) {
+        for (int i = 0; i < multiscaleAxes.size(); i++) {
+          if (multiscaleAxes.get(i) instanceof String) {
+            String axis = (String) multiscaleAxes.get(i);
+            addGlobalMeta("Axis " + i, axis);
+          }
+          else if (multiscaleAxes.get(i) instanceof HashMap) {
+            HashMap<String, String> axis = (HashMap<String, String>) multiscaleAxes.get(i);
+            String type = axis.get("type");
+            addGlobalMeta("Axis " + i + " type", type);
+            String name = axis.get("name");
+            addGlobalMeta("Axis " + i + " name", name);
+            String units = axis.get("units");
+            addGlobalMeta("Axis " + i + " units", units);
+          }
+        }
+      }
+      List<Object> coordinateTransformations = (List<Object>)datasets.get("coordinateTransformations");
+      if (coordinateTransformations != null) {
+        for (int i = 0; i < coordinateTransformations.size(); i++) {
+            HashMap<String, Object> transformation = (HashMap<String, Object>) coordinateTransformations.get(i);
+            String type = (String)transformation.get("type");
+            addGlobalMeta("Coordinate Transformation " + i + " type", type);
+            ArrayList<Object> scale = (ArrayList<Object>)transformation.get("scale");
+            if (scale != null)addGlobalMeta("Coordinate Transformation " + i + " scale", scale);
+            ArrayList<Object> translation = (ArrayList<Object>)transformation.get("translation");
+            if (translation != null)addGlobalMeta("Coordinate Transformation " + i + " translation", translation);
+        }
       }
     }
   }
@@ -690,7 +718,6 @@ public class ZarrReader extends FormatReader {
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
     if (!zarrRootPath.toLowerCase().contains("s3:")) {
-      usedFiles.add(zarrRootPath);
       File folder = new File(zarrRootPath);
       Collection<File> libs = FileUtils.listFiles(folder, null, true);
       for (File file : libs) {
