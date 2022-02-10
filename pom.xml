@@ -4,6 +4,22 @@
   <artifactId>OMEZarrReader</artifactId>
   <version>0.1.1-SNAPSHOT</version>
 
+  <inceptionYear>2020</inceptionYear>
+
+  <organization>
+    <name>Open Microscopy Environment</name>
+    <url>https://www.openmicroscopy.org/</url>
+  </organization>
+
+
+  <licenses>
+    <license>
+      <name>Simplified BSD License</name>
+      <url>https://opensource.org/licenses/BSD-2-Clause</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <repositories>
     <repository>
       <id>central</id>
@@ -156,6 +172,14 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>license-maven-plugin</artifactId>
+        <configuration>
+          <licenseName>bsd_2</licenseName>
+          <projectName>OME-Zarr Bio-Formats reader</projectName>
+        </configuration>
       </plugin>
     </plugins>
   </build>
