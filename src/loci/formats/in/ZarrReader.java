@@ -1,11 +1,11 @@
-/*
+
+package loci.formats.in;
+
+/*-
  * #%L
- * OME Bio-Formats package for reading and converting biological file formats.
+ * Implementation of Bio-Formats readers for the next-generation file formats
  * %%
- * Copyright (C) 2020 Open Microscopy Environment:
- *   - Board of Regents of the University of Wisconsin-Madison
- *   - Glencoe Software, Inc.
- *   - University of Dundee
+ * Copyright (C) 2020 - 2022 Open Microscopy Environment
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,8 +29,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
-
-package loci.formats.in;
 
 import java.io.File;
 import java.io.IOException;

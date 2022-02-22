@@ -2,7 +2,7 @@ package loci.formats;
 
 /*-
  * #%L
- * OME-Zarr Bio-Formats reader
+ * Implementation of Bio-Formats readers for the next-generation file formats
  * %%
  * Copyright (C) 2020 - 2022 Open Microscopy Environment
  * %%

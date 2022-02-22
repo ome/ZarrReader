@@ -4,6 +4,7 @@
   <artifactId>OMEZarrReader</artifactId>
   <version>0.1.1-SNAPSHOT</version>
 
+  <name>Implementation of Bio-Formats readers for the next-generation file formats</name>
   <inceptionYear>2020</inceptionYear>
 
   <organization>
@@ -178,7 +179,6 @@
         <artifactId>license-maven-plugin</artifactId>
         <configuration>
           <licenseName>bsd_2</licenseName>
-          <projectName>OME-Zarr Bio-Formats reader</projectName>
         </configuration>
       </plugin>
     </plugins>
