@@ -84,6 +84,14 @@ public class ZarrReader extends FormatReader {
     domains = new String[] {FormatTools.UNKNOWN_DOMAIN};
   }
 
+  /* @see loci.formats.IFormatReader#getRequiredDirectories(String[]) */
+  @Override
+  public int getRequiredDirectories(String[] files)
+    throws FormatException, IOException
+  {
+    return 1;
+  }
+
   /* @see loci.formats.IFormatReader#isThisType(String, boolean) */
   @Override
   public boolean isThisType(String name, boolean open) {
