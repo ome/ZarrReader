@@ -290,12 +290,12 @@ public class ZarrReader extends FormatReader {
       int resolutionTotal = 0;
       for (int i=0; i<arrayPaths.size(); i++) {
         int resolutionCount = 1;
-        if (resCounts.get(zarrRootPath+File.separator+arrayPaths.get(i)) != null) {
-          resolutionCount = resCounts.get(zarrRootPath+File.separator+arrayPaths.get(i));
+        if (resCounts.get(arrayPaths.get(i)) != null) {
+          resolutionCount = resCounts.get(arrayPaths.get(i));
         }
         int resolutionIndex= 0;
-        if (resIndexes.get(zarrRootPath+File.separator+arrayPaths.get(i)) != null) {
-          resolutionIndex = resIndexes.get(zarrRootPath+File.separator+arrayPaths.get(i));
+        if (resIndexes.get(arrayPaths.get(i)) != null) {
+          resolutionIndex = resIndexes.get(arrayPaths.get(i));
         }
 
         CoreMetadata ms = new CoreMetadata();
@@ -495,9 +495,9 @@ public class ZarrReader extends FormatReader {
         String scalePath = (String) multiScale.get("path");
         int numRes = multiscalePaths.size();
         if (i == 0) {
-          resCounts.put(path+File.separator+scalePath, numRes);
+          resCounts.put(scalePath, numRes);
         }
-        resIndexes.put(path+File.separator+scalePath, i);
+        resIndexes.put(scalePath, i);
         ArrayList<String> list = resSeries.get(resCounts.size() - 1);
         list.add(key.isEmpty() ? scalePath : key + File.separator + scalePath);
         resSeries.put(resCounts.size() - 1, list);
