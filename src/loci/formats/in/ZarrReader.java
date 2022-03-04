@@ -554,14 +554,16 @@ public class ZarrReader extends FormatReader {
         store.setPlateID(plate_id, p);
         store.setPlateName(plateName, p);
         int wellSamplesCount = 0;
+        HashMap<Integer, Integer> acqIdsIndexMap = new HashMap<Integer, Integer>();
         for (int a = 0; a < acquistions.size(); a++) {
           Map<String, Object> acquistion = (Map<String, Object>) acquistions.get(a);
-          String acqId = (String) acquistion.get("id");
+          Integer acqId = (Integer) acquistion.get("id");
           String acqName = (String) acquistion.get("name");
           String acqStartTime = (String) acquistion.get("starttime");
-          String maximumfieldcount = (String) acquistion.get("maximumfieldcount");
+          Integer maximumfieldcount = (Integer) acquistion.get("maximumfieldcount");
+          acqIdsIndexMap.put(acqId, a);
           store.setPlateAcquisitionID(
-              MetadataTools.createLSID("PlateAcquisition", p, Integer.parseInt(acqId)), p, Integer.parseInt(acqId));
+              MetadataTools.createLSID("PlateAcquisition", p, acqId), p, a);
         }
         for (int c = 0; c < columns.size(); c++) {
           Map<String, Object> column = (Map<String, Object>) columns.get(c);
@@ -579,10 +581,10 @@ public class ZarrReader extends FormatReader {
           String well_id =  MetadataTools.createLSID("Well", w);
           store.setWellID(well_id, p, w);
           String[] parts = wellPath.split("/");
-          if (wellRow.isEmpty()) {
+          if (StringUtils.isEmpty(wellRow)) {
             wellRow = parts[parts.length - 2];
           }
-          if (wellCol.isEmpty()) {
+          if (StringUtils.isEmpty(wellCol)) {
             wellCol = parts[parts.length - 1];
           }
           int rowIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellRow.toUpperCase());
@@ -596,13 +598,14 @@ public class ZarrReader extends FormatReader {
           store.setWellRow(new NonNegativeInteger(rowIndex), p, w);
           store.setWellColumn(new NonNegativeInteger(colIndex), p, w);
           store.setWellExternalIdentifier(wellPath, p, w);
-          wellSamplesCount = parseWells(root, wellPath, store, p, w, wellSamplesCount);
+          wellSamplesCount = parseWells(root, wellPath, store, p, w, wellSamplesCount, acqIdsIndexMap);
         }
       }
     }
   }
 
-  private int parseWells(String root, String key, MetadataStore store, int plateIndex, int wellIndex, int wellSamplesCount) throws IOException, FormatException {
+  private int parseWells(String root, String key, MetadataStore store, int plateIndex, int wellIndex, int wellSamplesCount, 
+      HashMap<Integer, Integer> acqIdsIndexMap) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
     Map<Object, Object> wells = (Map<Object, Object>) attr.get("well");
@@ -613,8 +616,10 @@ public class ZarrReader extends FormatReader {
         for (int i = 0; i < images.size(); i++) {
           Map<String, Object> image = (Map<String, Object>) images.get(i);
           String imagePath = (String) image.get("path");
-          double acquisition = (double) image.get("acquisition");
-
+          Integer acquisition = (Integer) image.get("acquisition");
+          if (acqIdsIndexMap.containsKey(acquisition)) {
+            acquisition = acqIdsIndexMap.get(acquisition);
+          }
           String site_id = MetadataTools.createLSID("WellSample", wellSamplesCount);
           store.setWellSampleID(site_id, plateIndex, wellIndex, i);
           store.setWellSampleIndex(new NonNegativeInteger(i), plateIndex, wellIndex, i);
