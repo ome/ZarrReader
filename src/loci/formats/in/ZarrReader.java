@@ -455,6 +455,12 @@ public class ZarrReader extends FormatReader {
     super.setSeries(no);
     openZarr();
   }
+  
+  @Override
+  public void setResolution(int no) {
+    super.setResolution(no);
+    openZarr();
+  }
 
   private void openZarr() {
     try {
@@ -462,7 +468,11 @@ public class ZarrReader extends FormatReader {
         String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr")+5);
         String newZarrPath = zarrRootPath;
         if (arrayPaths != null && !arrayPaths.isEmpty()) {
-          newZarrPath += File.separator + arrayPaths.get(series);
+          int seriesIndex = seriesToCoreIndex(series);
+          if (!hasFlattenedResolutions()) {
+            seriesIndex += resolution;
+          }
+          newZarrPath += File.separator + arrayPaths.get(seriesIndex);
           zarrService.open(newZarrPath);
         }
       }
@@ -487,49 +497,51 @@ public class ZarrReader extends FormatReader {
     Map<String, Object> attr = zarrService.getGroupAttr(path);
     ArrayList<Object> multiscales = (ArrayList<Object>) attr.get("multiscales");
     if (multiscales != null) {
-      Map<String, Object> datasets = (Map<String, Object>) multiscales.get(0);
-      ArrayList<Object> multiscalePaths = (ArrayList<Object>)datasets.get("datasets");
-      resSeries.put(resCounts.size(), new ArrayList<String>());
-      for (int i = 0; i < multiscalePaths.size(); i++) {
-        Map<String, Object> multiScale = (Map<String, Object>) multiscalePaths.get(i);
-        String scalePath = (String) multiScale.get("path");
-        int numRes = multiscalePaths.size();
-        if (i == 0) {
-          resCounts.put(scalePath, numRes);
-        }
-        resIndexes.put(scalePath, i);
-        ArrayList<String> list = resSeries.get(resCounts.size() - 1);
-        list.add(key.isEmpty() ? scalePath : key + File.separator + scalePath);
-        resSeries.put(resCounts.size() - 1, list);
-      }
-      List<Object> multiscaleAxes = (List<Object>)datasets.get("axes");
-      if (multiscaleAxes != null) {
-        for (int i = 0; i < multiscaleAxes.size(); i++) {
-          if (multiscaleAxes.get(i) instanceof String) {
-            String axis = (String) multiscaleAxes.get(i);
-            addGlobalMeta("Axis " + i, axis);
+      for (int x = 0; x < multiscales.size(); x++) {
+        Map<String, Object> datasets = (Map<String, Object>) multiscales.get(x);
+        ArrayList<Object> multiscalePaths = (ArrayList<Object>)datasets.get("datasets");
+        resSeries.put(resCounts.size(), new ArrayList<String>());
+        for (int i = 0; i < multiscalePaths.size(); i++) {
+          Map<String, Object> multiScale = (Map<String, Object>) multiscalePaths.get(i);
+          String scalePath = (String) multiScale.get("path");
+          int numRes = multiscalePaths.size();
+          if (i == 0) {
+            resCounts.put(scalePath, numRes);
           }
-          else if (multiscaleAxes.get(i) instanceof HashMap) {
-            HashMap<String, String> axis = (HashMap<String, String>) multiscaleAxes.get(i);
-            String type = axis.get("type");
-            addGlobalMeta("Axis " + i + " type", type);
-            String name = axis.get("name");
-            addGlobalMeta("Axis " + i + " name", name);
-            String units = axis.get("units");
-            addGlobalMeta("Axis " + i + " units", units);
+          resIndexes.put(scalePath, i);
+          ArrayList<String> list = resSeries.get(resCounts.size() - 1);
+          list.add(key.isEmpty() ? scalePath : key + File.separator + scalePath);
+          resSeries.put(resCounts.size() - 1, list);
+        }
+        List<Object> multiscaleAxes = (List<Object>)datasets.get("axes");
+        if (multiscaleAxes != null) {
+          for (int i = 0; i < multiscaleAxes.size(); i++) {
+            if (multiscaleAxes.get(i) instanceof String) {
+              String axis = (String) multiscaleAxes.get(i);
+              addGlobalMeta(MetadataTools.createLSID("Axis", x, i), axis);
+            }
+            else if (multiscaleAxes.get(i) instanceof HashMap) {
+              HashMap<String, String> axis = (HashMap<String, String>) multiscaleAxes.get(i);
+              String type = axis.get("type");
+              addGlobalMeta(MetadataTools.createLSID("Axis type", x, i), type);
+              String name = axis.get("name");
+              addGlobalMeta(MetadataTools.createLSID("Axis name", x, i), name);
+              String units = axis.get("units");
+              addGlobalMeta(MetadataTools.createLSID("Axis units", x, i), units);
+            }
           }
         }
-      }
-      List<Object> coordinateTransformations = (List<Object>)datasets.get("coordinateTransformations");
-      if (coordinateTransformations != null) {
-        for (int i = 0; i < coordinateTransformations.size(); i++) {
-            HashMap<String, Object> transformation = (HashMap<String, Object>) coordinateTransformations.get(i);
-            String type = (String)transformation.get("type");
-            addGlobalMeta("Coordinate Transformation " + i + " type", type);
-            ArrayList<Object> scale = (ArrayList<Object>)transformation.get("scale");
-            if (scale != null)addGlobalMeta("Coordinate Transformation " + i + " scale", scale);
-            ArrayList<Object> translation = (ArrayList<Object>)transformation.get("translation");
-            if (translation != null)addGlobalMeta("Coordinate Transformation " + i + " translation", translation);
+        List<Object> coordinateTransformations = (List<Object>)datasets.get("coordinateTransformations");
+        if (coordinateTransformations != null) {
+          for (int i = 0; i < coordinateTransformations.size(); i++) {
+              HashMap<String, Object> transformation = (HashMap<String, Object>) coordinateTransformations.get(i);
+              String type = (String)transformation.get("type");
+              addGlobalMeta(MetadataTools.createLSID("Coordinate Transformation type", x, i), type);
+              ArrayList<Object> scale = (ArrayList<Object>)transformation.get("scale");
+              if (scale != null)addGlobalMeta(MetadataTools.createLSID("Coordinate Transformation scale", x, i), scale);
+              ArrayList<Object> translation = (ArrayList<Object>)transformation.get("translation");
+              if (translation != null)addGlobalMeta(MetadataTools.createLSID("Coordinate Transformation translation", x, i), translation);
+          }
         }
       }
     }
