@@ -414,7 +414,7 @@ public class ZarrReader extends FormatReader {
       for (int row = 0; row < h; row++) {
         int base = row * w * bpp;
         for (int i = 0; i < w; i++) {
-          DataTools.unpackBytes(data[(row * w) + i + x], buf, base + 2 * i, 2, little);
+          DataTools.unpackBytes(data[(row * w) + i], buf, base + 2 * i, 2, little);
         }
       }
     }
@@ -423,7 +423,7 @@ public class ZarrReader extends FormatReader {
       for (int row = 0; row < h; row++) {
         int base = row * w * bpp;
         for (int i = 0; i < w; i++) {
-          DataTools.unpackBytes(data[(row * w) + i + x], buf, base + 4 * i, 4, little);
+          DataTools.unpackBytes(data[(row * w) + i], buf, base + 4 * i, 4, little);
         }
       }
     }
@@ -432,7 +432,7 @@ public class ZarrReader extends FormatReader {
       for (int row = 0; row < h; row++) {
         int base = row * w * bpp;
         for (int i = 0; i < w; i++) {
-          int value = Float.floatToIntBits(data[(row * w) + i + x]);
+          int value = Float.floatToIntBits(data[(row * w) + i]);
           DataTools.unpackBytes(value, buf, base + 4 * i, 4, little);
         }
       }
@@ -442,7 +442,7 @@ public class ZarrReader extends FormatReader {
       for (int row = 0; row < h; row++) {
         int base = row * w * bpp;
         for (int i = 0; i < w; i++) {
-          long value = Double.doubleToLongBits(data[(row * w) + i + x]);
+          long value = Double.doubleToLongBits(data[(row * w) + i]);
           DataTools.unpackBytes(value, buf, base + 8 * i, 8, little);
         }
       }
