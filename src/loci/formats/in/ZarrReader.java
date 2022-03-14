@@ -42,6 +42,7 @@ import java.util.Map;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
@@ -78,6 +79,7 @@ public class ZarrReader extends FormatReader {
   private HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>();
   private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
   private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
+  private String dimensionOrder = "XYCZT";
 
   private boolean hasSPW = false;
 
@@ -85,6 +87,14 @@ public class ZarrReader extends FormatReader {
     super("Zarr", "zarr");
     suffixSufficient = false;
     domains = new String[] {FormatTools.UNKNOWN_DOMAIN};
+  }
+
+  /* @see loci.formats.IFormatReader#getRequiredDirectories(String[]) */
+  @Override
+  public int getRequiredDirectories(String[] files)
+    throws FormatException, IOException
+  {
+    return 1;
   }
 
   /* @see loci.formats.IFormatReader#isThisType(String, boolean) */
@@ -185,7 +195,6 @@ public class ZarrReader extends FormatReader {
       for (int i=0; i<numDatasets; i++) {
         CoreMetadata ms = new CoreMetadata();
         core.add(ms);
-
         setSeries(i);
 
         Integer w = omexmlMeta.getPixelsSizeX(i).getValue();
@@ -280,19 +289,18 @@ public class ZarrReader extends FormatReader {
 
       arrayPaths = new ArrayList<String>();
       arrayPaths.addAll(zarrService.getArrayKeys(zarrRootPath));
-
       orderArrayPaths(zarrRootPath);
 
       core.clear();
       int resolutionTotal = 0;
       for (int i=0; i<arrayPaths.size(); i++) {
         int resolutionCount = 1;
-        if (resCounts.get(zarrRootPath+File.separator+arrayPaths.get(i)) != null) {
-          resolutionCount = resCounts.get(zarrRootPath+File.separator+arrayPaths.get(i));
+        if (resCounts.get(arrayPaths.get(i)) != null) {
+          resolutionCount = resCounts.get(arrayPaths.get(i));
         }
         int resolutionIndex= 0;
-        if (resIndexes.get(zarrRootPath+File.separator+arrayPaths.get(i)) != null) {
-          resolutionIndex = resIndexes.get(zarrRootPath+File.separator+arrayPaths.get(i));
+        if (resIndexes.get(arrayPaths.get(i)) != null) {
+          resolutionIndex = resIndexes.get(arrayPaths.get(i));
         }
 
         CoreMetadata ms = new CoreMetadata();
@@ -311,13 +319,16 @@ public class ZarrReader extends FormatReader {
 
         ms.pixelType = zarrService.getPixelType();
         int[] shape = zarrService.getShape();
+        if (shape.length < 5) {
+          shape = get5DShape(shape);
+        }
 
         ms.sizeX = shape[4];
         ms.sizeY = shape[3];
         ms.sizeT = shape[0];
         ms.sizeZ = shape[2];
         ms.sizeC = shape[1];
-        ms.dimensionOrder = "XYCZT";
+        ms.dimensionOrder = dimensionOrder;
         ms.imageCount = getSizeZ() * getSizeC() * getSizeT();
         ms.littleEndian = zarrService.isLittleEndian();
         ms.rgb = false;
@@ -332,8 +343,39 @@ public class ZarrReader extends FormatReader {
     }
     parsePlate(zarrRootPath, "", store);
     setSeries(0);
-   //hasSPW = store.getPlateCount() > 0;
+  }
 
+  /**
+   * In the event that .zarray does not contain a 5d shape
+   * The dimensions of the original shape will be assumed based on tczyx
+   * @param originalShape as found in .zarray
+   * @return a 5D shape to be used within the reader
+   */
+  private int[] get5DShape(int [] originalShape) {
+    int [] shape = new int[] {1,1,1,1,1};
+    int shapeIndex = 4;
+    for (int s = originalShape.length - 1; s >= 0; s--) {
+      shape[shapeIndex] = originalShape[s];
+      shapeIndex --;
+    }
+    return shape;
+  }
+
+  /**
+   * In the event that .zarray does not contain a 5d shape
+   * The 5D shape will be reduced to match the original representation
+   * @param shape5D - the 5D representation used within this reader
+   * @param size of the shape required by jzarr
+   * @return a 5D shape to be used within the reader
+   */
+  private int[] getOriginalShape(int [] shape5D, int size) {
+    int [] shape = new int[size];
+    int shape5DIndex = 4;
+    for (int s = shape.length - 1; s >= 0; s--) {
+      shape[s] = shape5D[shape5DIndex];
+      shape5DIndex --;
+    }
+    return shape;
   }
 
   /* @see loci.formats.FormatReader#reopenFile() */
@@ -348,14 +390,6 @@ public class ZarrReader extends FormatReader {
   }
 
   protected void initializeZarrService(String rootPath) throws IOException, FormatException {
-//    TODO: ZarrService needs to be added to ServiceFactory but will require a release of ome-common
-//    try {
-//      ServiceFactory factory = new ServiceFactory();
-//      zarrService = factory.getInstance(ZarrService.class);
-//      zarrService.open(id);
-//    } catch (DependencyException e) {
-//      throw new MissingLibraryException(ZarrServiceImpl.NO_ZARR_MSG, e);
-//    }
     zarrService = new JZarrServiceImpl(rootPath);
     openZarr();
   }
@@ -365,7 +399,14 @@ public class ZarrReader extends FormatReader {
     FormatTools.checkPlaneParameters(this, no, buf.length, x, y, w, h);
     int[] coordinates = getZCTCoords(no);
     int [] shape = {1, 1, 1, h, w};
+    int zarrArrayShapeSize = zarrService.getShape().length;
+    if (zarrArrayShapeSize < 5) {
+      shape = getOriginalShape(shape, zarrArrayShapeSize);
+    }
     int [] offsets = {coordinates[2], coordinates[1], coordinates[0], y, x};
+    if (zarrArrayShapeSize < 5) {
+      offsets = getOriginalShape(offsets, zarrArrayShapeSize);
+    }
     Object image = zarrService.readBytes(shape, offsets);
 
     boolean little = zarrService.isLittleEndian();
@@ -378,7 +419,7 @@ public class ZarrReader extends FormatReader {
       for (int row = 0; row < h; row++) {
         int base = row * w * bpp;
         for (int i = 0; i < w; i++) {
-          DataTools.unpackBytes(data[(row * w) + i + x], buf, base + 2 * i, 2, little);
+          DataTools.unpackBytes(data[(row * w) + i], buf, base + 2 * i, 2, little);
         }
       }
     }
@@ -387,7 +428,7 @@ public class ZarrReader extends FormatReader {
       for (int row = 0; row < h; row++) {
         int base = row * w * bpp;
         for (int i = 0; i < w; i++) {
-          DataTools.unpackBytes(data[(row * w) + i + x], buf, base + 4 * i, 4, little);
+          DataTools.unpackBytes(data[(row * w) + i], buf, base + 4 * i, 4, little);
         }
       }
     }
@@ -396,7 +437,7 @@ public class ZarrReader extends FormatReader {
       for (int row = 0; row < h; row++) {
         int base = row * w * bpp;
         for (int i = 0; i < w; i++) {
-          int value = Float.floatToIntBits(data[(row * w) + i + x]);
+          int value = Float.floatToIntBits(data[(row * w) + i]);
           DataTools.unpackBytes(value, buf, base + 4 * i, 4, little);
         }
       }
@@ -406,7 +447,7 @@ public class ZarrReader extends FormatReader {
       for (int row = 0; row < h; row++) {
         int base = row * w * bpp;
         for (int i = 0; i < w; i++) {
-          long value = Double.doubleToLongBits(data[(row * w) + i + x]);
+          long value = Double.doubleToLongBits(data[(row * w) + i]);
           DataTools.unpackBytes(value, buf, base + 8 * i, 8, little);
         }
       }
@@ -419,6 +460,12 @@ public class ZarrReader extends FormatReader {
     super.setSeries(no);
     openZarr();
   }
+  
+  @Override
+  public void setResolution(int no) {
+    super.setResolution(no);
+    openZarr();
+  }
 
   private void openZarr() {
     try {
@@ -426,7 +473,11 @@ public class ZarrReader extends FormatReader {
         String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr")+5);
         String newZarrPath = zarrRootPath;
         if (arrayPaths != null && !arrayPaths.isEmpty()) {
-          newZarrPath += File.separator + arrayPaths.get(series);
+          int seriesIndex = seriesToCoreIndex(series);
+          if (!hasFlattenedResolutions()) {
+            seriesIndex += resolution;
+          }
+          newZarrPath += File.separator + arrayPaths.get(seriesIndex);
           zarrService.open(newZarrPath);
         }
       }
@@ -451,24 +502,52 @@ public class ZarrReader extends FormatReader {
     Map<String, Object> attr = zarrService.getGroupAttr(path);
     ArrayList<Object> multiscales = (ArrayList<Object>) attr.get("multiscales");
     if (multiscales != null) {
-      Map<String, Object> datasets = (Map<String, Object>) multiscales.get(0);
-      ArrayList<Object> multiscalePaths = (ArrayList<Object>)datasets.get("datasets");
-      resSeries.put(resCounts.size(), new ArrayList<String>());
-      for (int i = 0; i < multiscalePaths.size(); i++) {
-        Map<String, Object> multiScale = (Map<String, Object>) multiscalePaths.get(i);
-        String scalePath = (String) multiScale.get("path");
-        int numRes = multiscalePaths.size();
-        if (i == 0) {
-          resCounts.put(path+File.separator+scalePath, numRes);
+      for (int x = 0; x < multiscales.size(); x++) {
+        Map<String, Object> datasets = (Map<String, Object>) multiscales.get(x);
+        ArrayList<Object> multiscalePaths = (ArrayList<Object>)datasets.get("datasets");
+        resSeries.put(resCounts.size(), new ArrayList<String>());
+        for (int i = 0; i < multiscalePaths.size(); i++) {
+          Map<String, Object> multiScale = (Map<String, Object>) multiscalePaths.get(i);
+          String scalePath = (String) multiScale.get("path");
+          int numRes = multiscalePaths.size();
+          if (i == 0) {
+            resCounts.put(scalePath, numRes);
+          }
+          resIndexes.put(scalePath, i);
+          ArrayList<String> list = resSeries.get(resCounts.size() - 1);
+          list.add(key.isEmpty() ? scalePath : key + File.separator + scalePath);
+          resSeries.put(resCounts.size() - 1, list);
         }
-        resIndexes.put(path+File.separator+scalePath, i);
-        ArrayList<String> list = resSeries.get(resCounts.size() - 1);
-        list.add(key.isEmpty() ? scalePath : key + File.separator + scalePath);
-        resSeries.put(resCounts.size() - 1, list);
-      }
-      List<String> multiscaleAxes = (List<String>)datasets.get("axes");
-      for (int i = 0; i < multiscaleAxes.size(); i++) {
-        String axis = (String) multiscaleAxes.get(i);
+        List<Object> multiscaleAxes = (List<Object>)datasets.get("axes");
+        if (multiscaleAxes != null) {
+          for (int i = 0; i < multiscaleAxes.size(); i++) {
+            if (multiscaleAxes.get(i) instanceof String) {
+              String axis = (String) multiscaleAxes.get(i);
+              addGlobalMeta(MetadataTools.createLSID("Axis", x, i), axis);
+            }
+            else if (multiscaleAxes.get(i) instanceof HashMap) {
+              HashMap<String, String> axis = (HashMap<String, String>) multiscaleAxes.get(i);
+              String type = axis.get("type");
+              addGlobalMeta(MetadataTools.createLSID("Axis type", x, i), type);
+              String name = axis.get("name");
+              addGlobalMeta(MetadataTools.createLSID("Axis name", x, i), name);
+              String units = axis.get("units");
+              addGlobalMeta(MetadataTools.createLSID("Axis units", x, i), units);
+            }
+          }
+        }
+        List<Object> coordinateTransformations = (List<Object>)datasets.get("coordinateTransformations");
+        if (coordinateTransformations != null) {
+          for (int i = 0; i < coordinateTransformations.size(); i++) {
+              HashMap<String, Object> transformation = (HashMap<String, Object>) coordinateTransformations.get(i);
+              String type = (String)transformation.get("type");
+              addGlobalMeta(MetadataTools.createLSID("Coordinate Transformation type", x, i), type);
+              ArrayList<Object> scale = (ArrayList<Object>)transformation.get("scale");
+              if (scale != null)addGlobalMeta(MetadataTools.createLSID("Coordinate Transformation scale", x, i), scale);
+              ArrayList<Object> translation = (ArrayList<Object>)transformation.get("translation");
+              if (translation != null)addGlobalMeta(MetadataTools.createLSID("Coordinate Transformation translation", x, i), translation);
+          }
+        }
       }
     }
   }
@@ -492,11 +571,24 @@ public class ZarrReader extends FormatReader {
         store.setPlateID(plate_id, p);
         store.setPlateName(plateName, p);
         int wellSamplesCount = 0;
+        HashMap<Integer, Integer> acqIdsIndexMap = new HashMap<Integer, Integer>();
         for (int a = 0; a < acquistions.size(); a++) {
           Map<String, Object> acquistion = (Map<String, Object>) acquistions.get(a);
-          String acqId = (String) acquistion.get("id");
+          Integer acqId = (Integer) acquistion.get("id");
+          String acqName = (String) acquistion.get("name");
+          String acqStartTime = (String) acquistion.get("starttime");
+          Integer maximumfieldcount = (Integer) acquistion.get("maximumfieldcount");
+          acqIdsIndexMap.put(acqId, a);
           store.setPlateAcquisitionID(
-              MetadataTools.createLSID("PlateAcquisition", p, Integer.parseInt(acqId)), p, Integer.parseInt(acqId));
+              MetadataTools.createLSID("PlateAcquisition", p, acqId), p, a);
+        }
+        for (int c = 0; c < columns.size(); c++) {
+          Map<String, Object> column = (Map<String, Object>) columns.get(c);
+          String colName = (String) column.get("name");
+        }
+        for (int r = 0; r < rows.size(); r++) {
+          Map<String, Object> row = (Map<String, Object>) rows.get(r);
+          String rowName = (String) row.get("name");
         }
         for (int w = 0; w < wells.size(); w++) {
           Map<String, Object> well = (Map<String, Object>) wells.get(w);
@@ -506,10 +598,10 @@ public class ZarrReader extends FormatReader {
           String well_id =  MetadataTools.createLSID("Well", w);
           store.setWellID(well_id, p, w);
           String[] parts = wellPath.split("/");
-          if (wellRow.isEmpty()) {
+          if (StringUtils.isEmpty(wellRow)) {
             wellRow = parts[parts.length - 2];
           }
-          if (wellCol.isEmpty()) {
+          if (StringUtils.isEmpty(wellCol)) {
             wellCol = parts[parts.length - 1];
           }
           int rowIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellRow.toUpperCase());
@@ -523,13 +615,14 @@ public class ZarrReader extends FormatReader {
           store.setWellRow(new NonNegativeInteger(rowIndex), p, w);
           store.setWellColumn(new NonNegativeInteger(colIndex), p, w);
           store.setWellExternalIdentifier(wellPath, p, w);
-          wellSamplesCount = parseWells(root, wellPath, store, p, w, wellSamplesCount);
+          wellSamplesCount = parseWells(root, wellPath, store, p, w, wellSamplesCount, acqIdsIndexMap);
         }
       }
     }
   }
 
-  private int parseWells(String root, String key, MetadataStore store, int plateIndex, int wellIndex, int wellSamplesCount) throws IOException, FormatException {
+  private int parseWells(String root, String key, MetadataStore store, int plateIndex, int wellIndex, int wellSamplesCount, 
+      HashMap<Integer, Integer> acqIdsIndexMap) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
     Map<Object, Object> wells = (Map<Object, Object>) attr.get("well");
@@ -540,8 +633,10 @@ public class ZarrReader extends FormatReader {
         for (int i = 0; i < images.size(); i++) {
           Map<String, Object> image = (Map<String, Object>) images.get(i);
           String imagePath = (String) image.get("path");
-          double acquisition = (double) image.get("acquisition");
-
+          Integer acquisition = (Integer) image.get("acquisition");
+          if (acqIdsIndexMap.containsKey(acquisition)) {
+            acquisition = acqIdsIndexMap.get(acquisition);
+          }
           String site_id = MetadataTools.createLSID("WellSample", wellSamplesCount);
           store.setWellSampleID(site_id, plateIndex, wellIndex, i);
           store.setWellSampleIndex(new NonNegativeInteger(i), plateIndex, wellIndex, i);
@@ -592,7 +687,7 @@ public class ZarrReader extends FormatReader {
         }
       }
     }
-    ArrayList<Object> sources = (ArrayList<Object>) attr.get("sources");
+    ArrayList<Object> sources = (ArrayList<Object>) attr.get("source");
     if (sources != null) {
       for (int s = 0; s < sources.size(); s++) {
         Map<String, Object> source = (Map<String, Object>) sources.get(s);
@@ -623,10 +718,10 @@ public class ZarrReader extends FormatReader {
         String channelLabel = (String) channel.get("label");
         Map<String, Object> window = (Map<String, Object>)channel.get("window");
         if (window != null) {
-            Double windowStart = getDouble(window, "start");
-            Double windowEnd = getDouble(window, "end");
-            Double windowMin = getDouble(window, "min");
-            Double windowMax = getDouble(window, "max");
+          Double windowStart = getDouble(window, "start");
+          Double windowEnd = getDouble(window, "end");
+          Double windowMin = getDouble(window, "min");
+          Double windowMax = getDouble(window, "max");
         }
       }
       Map<String, Object> rdefs = (Map<String, Object>)omeroMetadata.get("rdefs");
@@ -649,16 +744,16 @@ public class ZarrReader extends FormatReader {
   /* @see loci.formats.IFormatReader#getUsedFiles(boolean) */
   @Override
   public String[] getUsedFiles(boolean noPixels) {
-
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
     if (!zarrRootPath.toLowerCase().contains("s3:")) {
-      usedFiles.add(zarrRootPath);
       File folder = new File(zarrRootPath);
       Collection<File> libs = FileUtils.listFiles(folder, null, true);
       for (File file : libs) {
-        usedFiles.add(file.getAbsolutePath());
+        if (!file.isDirectory()) {
+          usedFiles.add(file.getAbsolutePath());
+        }
       }
     }
     else {
