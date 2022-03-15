@@ -134,6 +134,14 @@ public class ZarrReader extends FormatReader {
     return zarrService.getChunkSize()[0];
   }
 
+  /* @see loci.formats.IFormatReader#getOptimalTileHeight() */
+  //TODO: Re-add @Override
+  //@Override
+  public int[] getOptimalChunkSize() {
+    FormatTools.assertId(currentId, true, 1);
+    return zarrService.getChunkSize();
+  }
+
   /* @see loci.formats.FormatReader#initFile(String) */
   @Override
   protected void initFile(String id) throws FormatException, IOException {
@@ -399,58 +407,42 @@ public class ZarrReader extends FormatReader {
     FormatTools.checkPlaneParameters(this, no, buf.length, x, y, w, h);
     int[] coordinates = getZCTCoords(no);
     int [] shape = {1, 1, 1, h, w};
+    int [] offsets = {coordinates[2], coordinates[1], coordinates[0], y, x};
+    return openBytes(buf, shape, offsets);
+  }
+
+  //TODO: Re-add @Override 
+  //@Override
+  public byte[] openBytes(byte[] buf, int[] shape, int[] offsets) throws FormatException, IOException {
+    //TODO: checkPlaneParameters to be re-added once FormatTools updated
+    //FormatTools.checkParameters(this, buf.length, shape, offsets);
+    
     int zarrArrayShapeSize = zarrService.getShape().length;
     if (zarrArrayShapeSize < 5) {
       shape = getOriginalShape(shape, zarrArrayShapeSize);
-    }
-    int [] offsets = {coordinates[2], coordinates[1], coordinates[0], y, x};
-    if (zarrArrayShapeSize < 5) {
       offsets = getOriginalShape(offsets, zarrArrayShapeSize);
     }
     Object image = zarrService.readBytes(shape, offsets);
 
     boolean little = zarrService.isLittleEndian();
-    int bpp = FormatTools.getBytesPerPixel(zarrService.getPixelType());
     if (image instanceof byte[]) {
       buf = (byte []) image;
     }
     else if (image instanceof short[]) {
       short[] data = (short[]) image;
-      for (int row = 0; row < h; row++) {
-        int base = row * w * bpp;
-        for (int i = 0; i < w; i++) {
-          DataTools.unpackBytes(data[(row * w) + i], buf, base + 2 * i, 2, little);
-        }
-      }
+      buf = DataTools.shortsToBytes(data, little);
     }
     else if (image instanceof int[]) {
       int[] data = (int[]) image;
-      for (int row = 0; row < h; row++) {
-        int base = row * w * bpp;
-        for (int i = 0; i < w; i++) {
-          DataTools.unpackBytes(data[(row * w) + i], buf, base + 4 * i, 4, little);
-        }
-      }
+      buf = DataTools.intsToBytes(data, little);
     }
     else if (image instanceof float[]) {
       float[] data = (float[]) image;
-      for (int row = 0; row < h; row++) {
-        int base = row * w * bpp;
-        for (int i = 0; i < w; i++) {
-          int value = Float.floatToIntBits(data[(row * w) + i]);
-          DataTools.unpackBytes(value, buf, base + 4 * i, 4, little);
-        }
-      }
+      buf = DataTools.floatsToBytes(data, little);
     }
     else if (image instanceof double[]) {
       double[] data = (double[]) image;
-      for (int row = 0; row < h; row++) {
-        int base = row * w * bpp;
-        for (int i = 0; i < w; i++) {
-          long value = Double.doubleToLongBits(data[(row * w) + i]);
-          DataTools.unpackBytes(value, buf, base + 8 * i, 8, little);
-        }
-      }
+      buf = DataTools.doublesToBytes(data, little);
     }
     return buf;
   }
