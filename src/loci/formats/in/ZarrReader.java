@@ -572,15 +572,17 @@ public class ZarrReader extends FormatReader {
         store.setPlateName(plateName, p);
         int wellSamplesCount = 0;
         HashMap<Integer, Integer> acqIdsIndexMap = new HashMap<Integer, Integer>();
-        for (int a = 0; a < acquistions.size(); a++) {
-          Map<String, Object> acquistion = (Map<String, Object>) acquistions.get(a);
-          Integer acqId = (Integer) acquistion.get("id");
-          String acqName = (String) acquistion.get("name");
-          String acqStartTime = (String) acquistion.get("starttime");
-          Integer maximumfieldcount = (Integer) acquistion.get("maximumfieldcount");
-          acqIdsIndexMap.put(acqId, a);
-          store.setPlateAcquisitionID(
-              MetadataTools.createLSID("PlateAcquisition", p, acqId), p, a);
+        if (acquistions != null) {
+          for (int a = 0; a < acquistions.size(); a++) {
+            Map<String, Object> acquistion = (Map<String, Object>) acquistions.get(a);
+            Integer acqId = (Integer) acquistion.get("id");
+            String acqName = (String) acquistion.get("name");
+            String acqStartTime = (String) acquistion.get("starttime");
+            Integer maximumfieldcount = (Integer) acquistion.get("maximumfieldcount");
+            acqIdsIndexMap.put(acqId, a);
+            store.setPlateAcquisitionID(
+                MetadataTools.createLSID("PlateAcquisition", p, acqId), p, a);
+          }
         }
         for (int c = 0; c < columns.size(); c++) {
           Map<String, Object> column = (Map<String, Object>) columns.get(c);
@@ -641,7 +643,9 @@ public class ZarrReader extends FormatReader {
           store.setWellSampleID(site_id, plateIndex, wellIndex, i);
           store.setWellSampleIndex(new NonNegativeInteger(i), plateIndex, wellIndex, i);
           store.setWellSampleImageRef(arrayPaths.get(wellSamplesCount), plateIndex, wellIndex, i);
-          store.setPlateAcquisitionWellSampleRef(site_id, plateIndex, (int) acquisition, i);
+          if (acquisition != null) {
+            store.setPlateAcquisitionWellSampleRef(site_id, plateIndex, (int) acquisition, i);
+          }
           wellSamplesCount++;
         }
       }
