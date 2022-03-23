@@ -586,7 +586,7 @@ public class ZarrReader extends FormatReader {
         ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
         ArrayList<Object> rows = (ArrayList<Object>)plates.get("rows");
         ArrayList<Object> wells = (ArrayList<Object>)plates.get("wells");
-        ArrayList<Object>  acquistions = (ArrayList<Object> )plates.get("acquisitions");
+        ArrayList<Object>  acquisitions = (ArrayList<Object> )plates.get("acquisitions");
         String plateName = (String) plates.get("name");
         String fieldCount = (String) plates.get("filed_count");
 
@@ -595,9 +595,9 @@ public class ZarrReader extends FormatReader {
         store.setPlateName(plateName, p);
         int wellSamplesCount = 0;
         HashMap<Integer, Integer> acqIdsIndexMap = new HashMap<Integer, Integer>();
-        if (acquistions != null) {
-          for (int a = 0; a < acquistions.size(); a++) {
-            Map<String, Object> acquistion = (Map<String, Object>) acquistions.get(a);
+        if (acquisitions != null) {
+          for (int a = 0; a < acquisitions.size(); a++) {
+            Map<String, Object> acquistion = (Map<String, Object>) acquisitions.get(a);
             Integer acqId = (Integer) acquistion.get("id");
             String acqName = (String) acquistion.get("name");
             String acqStartTime = (String) acquistion.get("starttime");
