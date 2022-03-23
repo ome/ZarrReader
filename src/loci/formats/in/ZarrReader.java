@@ -125,14 +125,16 @@ public class ZarrReader extends FormatReader {
   @Override
   public int getOptimalTileHeight() {
     FormatTools.assertId(currentId, true, 1);
-    return zarrService.getChunkSize()[1];
+    int[] chunkSizes = zarrService.getChunkSize();
+    return chunkSizes[chunkSizes.length - 2];
   }
 
   /* @see loci.formats.IFormatReader#getOptimalTileHeight() */
   @Override
   public int getOptimalTileWidth() {
     FormatTools.assertId(currentId, true, 1);
-    return zarrService.getChunkSize()[0];
+    int[] chunkSizes = zarrService.getChunkSize();
+    return chunkSizes[chunkSizes.length - 1];
   }
 
   /* @see loci.formats.FormatReader#initFile(String) */
