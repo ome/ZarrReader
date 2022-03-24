@@ -122,16 +122,16 @@ public class ZarrReaderTest {
   
   @Test
   public void testGetOptimalTileHeight() {
-    int [] expectedChunks = {128, 256, 8, 8, 8};
+    int [] expectedChunks = {8, 8, 8, 256, 128};
     when(zarrService.getChunkSize()).thenReturn(expectedChunks);
-    assertEquals(expectedChunks[1], reader.getOptimalTileHeight());
+    assertEquals(expectedChunks[3], reader.getOptimalTileHeight());
   }
   
   @Test
   public void testGetOptimalTileWidth() {
-    int [] expectedChunks = {128, 256, 8, 8, 8};
+    int [] expectedChunks = {8, 8, 8, 256, 128};
     when(zarrService.getChunkSize()).thenReturn(expectedChunks);
-    assertEquals(expectedChunks[0], reader.getOptimalTileWidth());
+    assertEquals(expectedChunks[4], reader.getOptimalTileWidth());
   }
   
   @Test
