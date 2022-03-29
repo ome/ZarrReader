@@ -288,7 +288,6 @@ public class ZarrReader extends FormatReader {
           }
         }
       }
-      parsePlate(zarrRootPath, "", store);
 
       arrayPaths = new ArrayList<String>();
       arrayPaths.addAll(zarrService.getArrayKeys(zarrRootPath));
@@ -339,11 +338,14 @@ public class ZarrReader extends FormatReader {
         ms.resolutionCount = resolutionCount;
       }
     }
+
     MetadataTools.populatePixels( store, this, true );
     for (int i = 0; i < getSeriesCount(); i++) {
-      store.setImageName(arrayPaths.get(i), i);
+      store.setImageName(arrayPaths.get(seriesToCoreIndex(i)), i);
       store.setImageID(MetadataTools.createLSID("Image", i), i);
     }
+    parsePlate(zarrRootPath, "", store);
+
     setSeries(0);
   }
 
@@ -642,7 +644,14 @@ public class ZarrReader extends FormatReader {
         String site_id = MetadataTools.createLSID("WellSample", wellSamplesCount);
         store.setWellSampleID(site_id, plateIndex, wellIndex, i);
         store.setWellSampleIndex(new NonNegativeInteger(i), plateIndex, wellIndex, i);
-        String imageID = MetadataTools.createLSID("Image", wellSamplesCount);
+        String imageRefPath = "" + i;
+        if (key != null && !key.isEmpty()) {
+          imageRefPath = key + File.separator+i;
+        }
+        if (resCounts.containsKey(imageRefPath + File.separator + "0")) {
+          imageRefPath += File.separator + "0";
+        }
+        String imageID = MetadataTools.createLSID("Image", coreIndexToSeries(arrayPaths.indexOf(imageRefPath)));
         store.setWellSampleImageRef(imageID, plateIndex, wellIndex, i);
         if (acquisition != null) {
           store.setPlateAcquisitionWellSampleRef(site_id, plateIndex, (int) acquisition, i);
