@@ -80,6 +80,8 @@ public class ZarrReader extends FormatReader {
   private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
   private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
   private String dimensionOrder = "XYCZT";
+  private int wellCount = 0;
+  private int wellSamplesCount = 0;
 
   private boolean hasSPW = false;
 
@@ -240,7 +242,7 @@ public class ZarrReader extends FormatReader {
         try {
           jsonAttr = ZarrUtils.toJson(attr, true);
           store.setXMLAnnotationValue(jsonAttr, attrIndex);
-          String xml_id = MetadataTools.createLSID("AttributesAnnotation:", attrIndex);
+          String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
           store.setXMLAnnotationID(xml_id, attrIndex);
         } catch (JZarrException e) {
           LOGGER.warn("Failed to convert attributes to JSON");
@@ -260,7 +262,7 @@ public class ZarrReader extends FormatReader {
           try {
             jsonAttr = ZarrUtils.toJson(attributes, true);
             store.setXMLAnnotationValue(jsonAttr, attrIndex);
-            String xml_id = MetadataTools.createLSID("AttributesAnnotation:"+key, attrIndex);
+            String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
             store.setXMLAnnotationID(xml_id, attrIndex);
           } catch (JZarrException e) {
             LOGGER.warn("Failed to convert attributes to JSON");
@@ -278,7 +280,7 @@ public class ZarrReader extends FormatReader {
           try {
             jsonAttr = ZarrUtils.toJson(attributes, true);
             store.setXMLAnnotationValue(jsonAttr, attrIndex);
-            String xml_id = MetadataTools.createLSID("AttributesAnnotation:"+key, attrIndex);
+            String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
             store.setXMLAnnotationID(xml_id, attrIndex);
           } catch (JZarrException e) {
             LOGGER.warn("Failed to convert attributes to JSON");
@@ -286,6 +288,7 @@ public class ZarrReader extends FormatReader {
           }
         }
       }
+      parsePlate(zarrRootPath, "", store);
 
       arrayPaths = new ArrayList<String>();
       arrayPaths.addAll(zarrService.getArrayKeys(zarrRootPath));
@@ -339,9 +342,8 @@ public class ZarrReader extends FormatReader {
     MetadataTools.populatePixels( store, this, true );
     for (int i = 0; i < getSeriesCount(); i++) {
       store.setImageName(arrayPaths.get(i), i);
-      store.setImageID(arrayPaths.get(i), i);
+      store.setImageID(MetadataTools.createLSID("Image", i), i);
     }
-    parsePlate(zarrRootPath, "", store);
     setSeries(0);
   }
 
@@ -511,7 +513,11 @@ public class ZarrReader extends FormatReader {
           String scalePath = (String) multiScale.get("path");
           int numRes = multiscalePaths.size();
           if (i == 0) {
-            resCounts.put(scalePath, numRes);
+            String resPath = scalePath;
+            if (key!= null && !key.isEmpty()) {
+              resPath = key + File.separator + scalePath;
+            }
+            resCounts.put(resPath, numRes);
           }
           resIndexes.put(scalePath, i);
           ArrayList<String> list = resSeries.get(resCounts.size() - 1);
@@ -557,100 +563,93 @@ public class ZarrReader extends FormatReader {
     Map<String, Object> attr = zarrService.getGroupAttr(path);
     Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
     if (plates != null) {
-      for (int p=0; p < plates.size(); p++) {
+      ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
+      ArrayList<Object> rows = (ArrayList<Object>)plates.get("rows");
+      ArrayList<Object> wells = (ArrayList<Object>)plates.get("wells");
+      ArrayList<Object>  acquistions = (ArrayList<Object> )plates.get("acquisitions");
+      String plateName = (String) plates.get("name");
+      String fieldCount = (String) plates.get("filed_count");
 
-        Map<String, Object> plate = (Map<String, Object>) plates.get(p);
-        ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
-        ArrayList<Object> rows = (ArrayList<Object>)plates.get("rows");
-        ArrayList<Object> wells = (ArrayList<Object>)plates.get("wells");
-        ArrayList<Object>  acquistions = (ArrayList<Object> )plates.get("acquisitions");
-        String plateName = (String) plates.get("name");
-        String fieldCount = (String) plates.get("filed_count");
-
-        String plate_id =  MetadataTools.createLSID("Plate", p);
-        store.setPlateID(plate_id, p);
-        store.setPlateName(plateName, p);
-        int wellSamplesCount = 0;
-        HashMap<Integer, Integer> acqIdsIndexMap = new HashMap<Integer, Integer>();
-        if (acquistions != null) {
-          for (int a = 0; a < acquistions.size(); a++) {
-            Map<String, Object> acquistion = (Map<String, Object>) acquistions.get(a);
-            Integer acqId = (Integer) acquistion.get("id");
-            String acqName = (String) acquistion.get("name");
-            String acqStartTime = (String) acquistion.get("starttime");
-            Integer maximumfieldcount = (Integer) acquistion.get("maximumfieldcount");
-            acqIdsIndexMap.put(acqId, a);
-            store.setPlateAcquisitionID(
-                MetadataTools.createLSID("PlateAcquisition", p, acqId), p, a);
-          }
+      String plate_id =  MetadataTools.createLSID("Plate", 0);
+      store.setPlateID(plate_id, 0);
+      store.setPlateName(plateName, 0);
+      HashMap<Integer, Integer> acqIdsIndexMap = new HashMap<Integer, Integer>();
+      if (acquistions != null) {
+        for (int a = 0; a < acquistions.size(); a++) {
+          Map<String, Object> acquistion = (Map<String, Object>) acquistions.get(a);
+          Integer acqId = (Integer) acquistion.get("id");
+          String acqName = (String) acquistion.get("name");
+          String acqStartTime = (String) acquistion.get("starttime");
+          Integer maximumfieldcount = (Integer) acquistion.get("maximumfieldcount");
+          acqIdsIndexMap.put(acqId, a);
+          store.setPlateAcquisitionID(
+              MetadataTools.createLSID("PlateAcquisition", 0, acqId), 0, a);
         }
-        for (int c = 0; c < columns.size(); c++) {
-          Map<String, Object> column = (Map<String, Object>) columns.get(c);
-          String colName = (String) column.get("name");
+      }
+      for (int c = 0; c < columns.size(); c++) {
+        Map<String, Object> column = (Map<String, Object>) columns.get(c);
+        String colName = (String) column.get("name");
+      }
+      for (int r = 0; r < rows.size(); r++) {
+        Map<String, Object> row = (Map<String, Object>) rows.get(r);
+        String rowName = (String) row.get("name");
+      }
+      for (int w = 0; w < wells.size(); w++) {
+        Map<String, Object> well = (Map<String, Object>) wells.get(w);
+        String wellPath = (String) well.get("path");
+        String wellCol = (String) well.get("column_index");
+        String wellRow = (String) well.get("row_index");
+        String well_id =  MetadataTools.createLSID("Well", wellCount);
+        store.setWellID(well_id, 0, w);
+        String[] parts = wellPath.split("/");
+        if (StringUtils.isEmpty(wellRow)) {
+          wellRow = parts[parts.length - 2];
         }
-        for (int r = 0; r < rows.size(); r++) {
-          Map<String, Object> row = (Map<String, Object>) rows.get(r);
-          String rowName = (String) row.get("name");
+        if (StringUtils.isEmpty(wellCol)) {
+          wellCol = parts[parts.length - 1];
         }
-        for (int w = 0; w < wells.size(); w++) {
-          Map<String, Object> well = (Map<String, Object>) wells.get(w);
-          String wellPath = (String) well.get("path");
-          String wellCol = (String) well.get("column_index");
-          String wellRow = (String) well.get("row_index");
-          String well_id =  MetadataTools.createLSID("Well", w);
-          store.setWellID(well_id, p, w);
-          String[] parts = wellPath.split("/");
-          if (StringUtils.isEmpty(wellRow)) {
-            wellRow = parts[parts.length - 2];
-          }
-          if (StringUtils.isEmpty(wellCol)) {
-            wellCol = parts[parts.length - 1];
-          }
-          int rowIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellRow.toUpperCase());
-          if (rowIndex == -1) {
-            rowIndex = Integer.parseInt(wellRow);
-          }
-          int colIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellCol.toUpperCase());
-          if (colIndex == -1) {
-            colIndex = Integer.parseInt(wellCol);
-          }
-          store.setWellRow(new NonNegativeInteger(rowIndex), p, w);
-          store.setWellColumn(new NonNegativeInteger(colIndex), p, w);
-          store.setWellExternalIdentifier(wellPath, p, w);
-          wellSamplesCount = parseWells(root, wellPath, store, p, w, wellSamplesCount, acqIdsIndexMap);
+        int rowIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellRow.toUpperCase());
+        if (rowIndex == -1) {
+          rowIndex = Integer.parseInt(wellRow);
         }
+        int colIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellCol.toUpperCase());
+        if (colIndex == -1) {
+          colIndex = Integer.parseInt(wellCol);
+        }
+        store.setWellRow(new NonNegativeInteger(rowIndex), 0, w);
+        store.setWellColumn(new NonNegativeInteger(colIndex), 0, w);
+        store.setWellExternalIdentifier(wellPath, 0, w);
+        parseWells(root, wellPath, store, 0, w, acqIdsIndexMap);
+        wellCount++;
       }
     }
   }
 
-  private int parseWells(String root, String key, MetadataStore store, int plateIndex, int wellIndex, int wellSamplesCount, 
+  private void parseWells(String root, String key, MetadataStore store, int plateIndex, int wellIndex, 
       HashMap<Integer, Integer> acqIdsIndexMap) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
     Map<Object, Object> wells = (Map<Object, Object>) attr.get("well");
     if (wells != null) {
-      for (int w=0; w < wells.size(); w++) {
-        Map<String, Object> well = (Map<String, Object>) wells.get(w);
-        ArrayList<Object> images = (ArrayList<Object>)wells.get("images");
-        for (int i = 0; i < images.size(); i++) {
-          Map<String, Object> image = (Map<String, Object>) images.get(i);
-          String imagePath = (String) image.get("path");
-          Integer acquisition = (Integer) image.get("acquisition");
-          if (acqIdsIndexMap.containsKey(acquisition)) {
-            acquisition = acqIdsIndexMap.get(acquisition);
-          }
-          String site_id = MetadataTools.createLSID("WellSample", wellSamplesCount);
-          store.setWellSampleID(site_id, plateIndex, wellIndex, i);
-          store.setWellSampleIndex(new NonNegativeInteger(i), plateIndex, wellIndex, i);
-          store.setWellSampleImageRef(arrayPaths.get(wellSamplesCount), plateIndex, wellIndex, i);
-          if (acquisition != null) {
-            store.setPlateAcquisitionWellSampleRef(site_id, plateIndex, (int) acquisition, i);
-          }
-          wellSamplesCount++;
+      ArrayList<Object> images = (ArrayList<Object>)wells.get("images");
+      for (int i = 0; i < images.size(); i++) {
+        Map<String, Object> image = (Map<String, Object>) images.get(i);
+        String imagePath = (String) image.get("path");
+        Integer acquisition = (Integer) image.get("acquisition");
+        if (acqIdsIndexMap.containsKey(acquisition)) {
+          acquisition = acqIdsIndexMap.get(acquisition);
         }
+        String site_id = MetadataTools.createLSID("WellSample", wellSamplesCount);
+        store.setWellSampleID(site_id, plateIndex, wellIndex, i);
+        store.setWellSampleIndex(new NonNegativeInteger(i), plateIndex, wellIndex, i);
+        String imageID = MetadataTools.createLSID("Image", wellSamplesCount);
+        store.setWellSampleImageRef(imageID, plateIndex, wellIndex, i);
+        if (acquisition != null) {
+          store.setPlateAcquisitionWellSampleRef(site_id, plateIndex, (int) acquisition, i);
+        }
+        wellSamplesCount++;
       }
     }
-    return wellSamplesCount;
   }
 
   private void parseLabels(String root, String key) throws IOException, FormatException {
