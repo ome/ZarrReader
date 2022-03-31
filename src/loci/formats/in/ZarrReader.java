@@ -80,7 +80,7 @@ public class ZarrReader extends FormatReader {
   private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
   private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
   private String dimensionOrder = "XYCZT";
-  private HashMap<String, ArrayList<String>> pathArrayDimensions = new HashMap<String, ArrayList<String>>();
+  private ArrayList<String> pathArrayDimensions = new ArrayList<String>();
 
   private boolean hasSPW = false;
 
@@ -276,7 +276,6 @@ public class ZarrReader extends FormatReader {
       for (String key: zarrService.getArrayKeys(zarrRootPath)) {
         Map<String, Object> attributes = zarrService.getArrayAttr(zarrRootPath+File.separator+key);
         if (attributes != null && !attributes.isEmpty()) {
-          parseArrayDimensions(zarrRootPath, key);
           attrIndex++;
           String jsonAttr;
           try {
@@ -332,16 +331,15 @@ public class ZarrReader extends FormatReader {
         ms.sizeT = shape[0];
         ms.sizeZ = shape[2];
         ms.sizeC = shape[1];
-        if (pathArrayDimensions.get(arrayPaths.get(i)) != null) {
-          ArrayList<String> dimensions = pathArrayDimensions.get(arrayPaths.get(i));
-          ms.sizeX = shape[dimensions.indexOf("x")];
-          ms.sizeY = shape[dimensions.indexOf("y")];
-          ms.sizeT = shape[dimensions.indexOf("t")];
-          ms.sizeZ = shape[dimensions.indexOf("z")];
-          ms.sizeC = shape[dimensions.indexOf("c")];
+        if (!pathArrayDimensions.isEmpty()) {
+          ms.sizeX = shape[pathArrayDimensions.indexOf("x")];
+          ms.sizeY = shape[pathArrayDimensions.indexOf("y")];
+          ms.sizeT = shape[pathArrayDimensions.indexOf("t")];
+          ms.sizeZ = shape[pathArrayDimensions.indexOf("z")];
+          ms.sizeC = shape[pathArrayDimensions.indexOf("c")];
           String newDimOrder = "";
-          for (int d = 1; d < dimensions.size() + 1; d++) {
-            newDimOrder += dimensions.get(dimensions.size() - d).toUpperCase();
+          for (int d = 1; d < pathArrayDimensions.size() + 1; d++) {
+            newDimOrder += pathArrayDimensions.get(pathArrayDimensions.size() - d).toUpperCase();
           }
           dimensionOrder = newDimOrder;
         }
@@ -547,6 +545,7 @@ public class ZarrReader extends FormatReader {
             if (multiscaleAxes.get(i) instanceof String) {
               String axis = (String) multiscaleAxes.get(i);
               addGlobalMeta(MetadataTools.createLSID("Axis", x, i), axis);
+              pathArrayDimensions.add(axis.toLowerCase());
             }
             else if (multiscaleAxes.get(i) instanceof HashMap) {
               HashMap<String, String> axis = (HashMap<String, String>) multiscaleAxes.get(i);
@@ -556,7 +555,16 @@ public class ZarrReader extends FormatReader {
               addGlobalMeta(MetadataTools.createLSID("Axis name", x, i), name);
               String units = axis.get("units");
               addGlobalMeta(MetadataTools.createLSID("Axis units", x, i), units);
+              pathArrayDimensions.add(name.toLowerCase());
             }
+          }
+          if (pathArrayDimensions.size() < 5) {
+            // Fill missing dimensions
+            if (!pathArrayDimensions.contains("x")) pathArrayDimensions.add(0, "x");
+            if (!pathArrayDimensions.contains("y")) pathArrayDimensions.add(0, "y");
+            if (!pathArrayDimensions.contains("c")) pathArrayDimensions.add(0, "c");
+            if (!pathArrayDimensions.contains("t")) pathArrayDimensions.add(0, "t");
+            if (!pathArrayDimensions.contains("z")) pathArrayDimensions.add(0, "z");
           }
         }
         List<Object> coordinateTransformations = (List<Object>)datasets.get("coordinateTransformations");
@@ -757,26 +765,6 @@ public class ZarrReader extends FormatReader {
         Integer defaultZ = (Integer) rdefs.get("defaultZ");
         String model = (String) rdefs.get("model");
       }
-    }
-  }
-
-  private void parseArrayDimensions(String root, String key) throws IOException, FormatException {
-    String path = key.isEmpty() ? root : root + File.separator + key;
-    Map<String, Object> attr = zarrService.getArrayAttr(path);
-    ArrayList<Object> arrayDimensions = (ArrayList<Object>) attr.get("_ARRAY_DIMENSIONS");
-    ArrayList<String> dimensions = new ArrayList<String>();
-    if (arrayDimensions != null) {
-      for (int i = 0; i < arrayDimensions.size(); i++) {
-        String dimension = (String) arrayDimensions.get(i);
-        dimensions.add(dimension.toLowerCase());
-      }
-      if (dimensions.size() < 5) {
-        // Fill missing dimensions
-        if (!dimensions.contains("c")) dimensions.add(0, "c");
-        if (!dimensions.contains("t")) dimensions.add(0, "t");
-        if (!dimensions.contains("z")) dimensions.add(0, "z");
-      }
-      pathArrayDimensions.put(key, dimensions);
     }
   }
 
