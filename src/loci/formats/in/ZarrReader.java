@@ -80,7 +80,7 @@ public class ZarrReader extends FormatReader {
   private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
   private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
   private String dimensionOrder = "XYCZT";
-  private ArrayList<String> pathArrayDimensions = new ArrayList<String>();
+  private HashMap<String, ArrayList<String>> pathArrayDimensions = new HashMap<String, ArrayList<String>>();
 
   private boolean hasSPW = false;
 
@@ -331,15 +331,16 @@ public class ZarrReader extends FormatReader {
         ms.sizeT = shape[0];
         ms.sizeZ = shape[2];
         ms.sizeC = shape[1];
-        if (!pathArrayDimensions.isEmpty()) {
-          ms.sizeX = shape[pathArrayDimensions.indexOf("x")];
-          ms.sizeY = shape[pathArrayDimensions.indexOf("y")];
-          ms.sizeT = shape[pathArrayDimensions.indexOf("t")];
-          ms.sizeZ = shape[pathArrayDimensions.indexOf("z")];
-          ms.sizeC = shape[pathArrayDimensions.indexOf("c")];
+        ArrayList<String> pathDimensions = pathArrayDimensions.get(arrayPaths.get(i));
+        if (!pathDimensions.isEmpty()) {
+          ms.sizeX = shape[pathDimensions.indexOf("x")];
+          ms.sizeY = shape[pathDimensions.indexOf("y")];
+          ms.sizeT = shape[pathDimensions.indexOf("t")];
+          ms.sizeZ = shape[pathDimensions.indexOf("z")];
+          ms.sizeC = shape[pathDimensions.indexOf("c")];
           String newDimOrder = "";
-          for (int d = 1; d < pathArrayDimensions.size() + 1; d++) {
-            newDimOrder += pathArrayDimensions.get(pathArrayDimensions.size() - d).toUpperCase();
+          for (int d = 1; d < pathDimensions.size() + 1; d++) {
+            newDimOrder += pathDimensions.get(pathDimensions.size() - d).toUpperCase();
           }
           dimensionOrder = newDimOrder;
         }
@@ -521,10 +522,39 @@ public class ZarrReader extends FormatReader {
   private void parseResolutionCount(String root, String key) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
+    ArrayList<String> pathDimensions = new ArrayList<String> ();
     ArrayList<Object> multiscales = (ArrayList<Object>) attr.get("multiscales");
     if (multiscales != null) {
       for (int x = 0; x < multiscales.size(); x++) {
         Map<String, Object> datasets = (Map<String, Object>) multiscales.get(x);
+        List<Object> multiscaleAxes = (List<Object>)datasets.get("axes");
+        if (multiscaleAxes != null) {
+          for (int i = 0; i < multiscaleAxes.size(); i++) {
+            if (multiscaleAxes.get(i) instanceof String) {
+              String axis = (String) multiscaleAxes.get(i);
+              addGlobalMeta(MetadataTools.createLSID("Axis", x, i), axis);
+              pathDimensions.add(axis.toLowerCase());
+            }
+            else if (multiscaleAxes.get(i) instanceof HashMap) {
+              HashMap<String, String> axis = (HashMap<String, String>) multiscaleAxes.get(i);
+              String type = axis.get("type");
+              addGlobalMeta(MetadataTools.createLSID("Axis type", x, i), type);
+              String name = axis.get("name");
+              addGlobalMeta(MetadataTools.createLSID("Axis name", x, i), name);
+              String units = axis.get("units");
+              addGlobalMeta(MetadataTools.createLSID("Axis units", x, i), units);
+              pathDimensions.add(name.toLowerCase());
+            }
+          }
+          if (pathDimensions.size() < 5) {
+            // Fill missing dimensions
+            if (!pathDimensions.contains("x")) pathDimensions.add(0, "x");
+            if (!pathDimensions.contains("y")) pathDimensions.add(0, "y");
+            if (!pathDimensions.contains("c")) pathDimensions.add(0, "c");
+            if (!pathDimensions.contains("t")) pathDimensions.add(0, "t");
+            if (!pathDimensions.contains("z")) pathDimensions.add(0, "z");
+          }
+        }
         ArrayList<Object> multiscalePaths = (ArrayList<Object>)datasets.get("datasets");
         resSeries.put(resCounts.size(), new ArrayList<String>());
         for (int i = 0; i < multiscalePaths.size(); i++) {
@@ -538,34 +568,7 @@ public class ZarrReader extends FormatReader {
           ArrayList<String> list = resSeries.get(resCounts.size() - 1);
           list.add(key.isEmpty() ? scalePath : key + File.separator + scalePath);
           resSeries.put(resCounts.size() - 1, list);
-        }
-        List<Object> multiscaleAxes = (List<Object>)datasets.get("axes");
-        if (multiscaleAxes != null) {
-          for (int i = 0; i < multiscaleAxes.size(); i++) {
-            if (multiscaleAxes.get(i) instanceof String) {
-              String axis = (String) multiscaleAxes.get(i);
-              addGlobalMeta(MetadataTools.createLSID("Axis", x, i), axis);
-              pathArrayDimensions.add(axis.toLowerCase());
-            }
-            else if (multiscaleAxes.get(i) instanceof HashMap) {
-              HashMap<String, String> axis = (HashMap<String, String>) multiscaleAxes.get(i);
-              String type = axis.get("type");
-              addGlobalMeta(MetadataTools.createLSID("Axis type", x, i), type);
-              String name = axis.get("name");
-              addGlobalMeta(MetadataTools.createLSID("Axis name", x, i), name);
-              String units = axis.get("units");
-              addGlobalMeta(MetadataTools.createLSID("Axis units", x, i), units);
-              pathArrayDimensions.add(name.toLowerCase());
-            }
-          }
-          if (pathArrayDimensions.size() < 5) {
-            // Fill missing dimensions
-            if (!pathArrayDimensions.contains("x")) pathArrayDimensions.add(0, "x");
-            if (!pathArrayDimensions.contains("y")) pathArrayDimensions.add(0, "y");
-            if (!pathArrayDimensions.contains("c")) pathArrayDimensions.add(0, "c");
-            if (!pathArrayDimensions.contains("t")) pathArrayDimensions.add(0, "t");
-            if (!pathArrayDimensions.contains("z")) pathArrayDimensions.add(0, "z");
-          }
+          pathArrayDimensions.put(key.isEmpty() ? scalePath : key + File.separator + scalePath, pathDimensions);
         }
         List<Object> coordinateTransformations = (List<Object>)datasets.get("coordinateTransformations");
         if (coordinateTransformations != null) {
