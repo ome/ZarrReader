@@ -161,7 +161,7 @@ public class ZarrReaderTest {
         
         when(zarrService.readBytes(readerShape, readerOffset)).thenReturn(expectedBuf);
         when(zarrService.getPixelType()).thenReturn(0);
-        buf = new byte[1024*512];
+        buf = new byte[1024*512*4];
         buf = reader.openBytes(0, buf);
         assertEquals(expectedBuf, buf);
       } catch (FormatException | IOException e) {

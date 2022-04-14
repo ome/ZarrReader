@@ -79,7 +79,7 @@ public class ZarrReader extends FormatReader {
   private HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>();
   private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
   private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
-  private String dimensionOrder = "XYCZT";
+  private String dimensionOrder = "XYZCT";
   private int wellCount = 0;
   private int wellSamplesCount = 0;
   private HashMap<String, ArrayList<String>> pathArrayDimensions = new HashMap<String, ArrayList<String>>();
@@ -211,7 +211,7 @@ public class ZarrReader extends FormatReader {
           throw new FormatException("Image dimensions not found");
         }
 
-        Boolean endian = null;
+        Boolean endian = zarrService.isLittleEndian();;
         String pixType = omexmlMeta.getPixelsType(i).toString();
         ms.dimensionOrder = omexmlMeta.getPixelsDimensionOrder(i).toString();
         ms.sizeX = w.intValue();
@@ -334,7 +334,7 @@ public class ZarrReader extends FormatReader {
         ms.sizeZ = shape[2];
         ms.sizeC = shape[1];
         ArrayList<String> pathDimensions = pathArrayDimensions.get(arrayPaths.get(i));
-        if (!pathDimensions.isEmpty()) {
+        if (pathDimensions != null && !pathDimensions.isEmpty()) {
           ms.sizeX = shape[pathDimensions.indexOf("x")];
           ms.sizeY = shape[pathDimensions.indexOf("y")];
           ms.sizeT = shape[pathDimensions.indexOf("t")];
@@ -438,7 +438,10 @@ public class ZarrReader extends FormatReader {
     boolean little = zarrService.isLittleEndian();
     int bpp = FormatTools.getBytesPerPixel(zarrService.getPixelType());
     if (image instanceof byte[]) {
-      buf = (byte []) image;
+      byte [] data = (byte []) image;
+      for (int i = 0; i < data.length; i++) {
+        DataTools.unpackBytes(data[i], buf, i, 1, little);
+      }
     }
     else if (image instanceof short[]) {
       short[] data = (short[]) image;
@@ -526,12 +529,12 @@ public class ZarrReader extends FormatReader {
   private void parseResolutionCount(String root, String key) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
-    ArrayList<String> pathDimensions = new ArrayList<String> ();
     ArrayList<Object> multiscales = (ArrayList<Object>) attr.get("multiscales");
     if (multiscales != null) {
       for (int x = 0; x < multiscales.size(); x++) {
         Map<String, Object> datasets = (Map<String, Object>) multiscales.get(x);
         List<Object> multiscaleAxes = (List<Object>)datasets.get("axes");
+        ArrayList<String> pathDimensions = new ArrayList<String> ();
         if (multiscaleAxes != null) {
           for (int i = 0; i < multiscaleAxes.size(); i++) {
             if (multiscaleAxes.get(i) instanceof String) {
