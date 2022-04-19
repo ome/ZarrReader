@@ -42,7 +42,6 @@ import java.util.Map;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
@@ -634,10 +633,10 @@ public class ZarrReader extends FormatReader {
           String well_id =  MetadataTools.createLSID("Well", w);
           store.setWellID(well_id, p, w);
           String[] parts = wellPath.split("/");
-          if (StringUtils.isEmpty(wellRow)) {
+          if (wellRow == null || wellRow.length() == 0) {
             wellRow = parts[parts.length - 2];
           }
-          if (StringUtils.isEmpty(wellCol)) {
+          if (wellCol == null || wellCol.length() == 0) {
             wellCol = parts[parts.length - 1];
           }
           int rowIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellRow.toUpperCase());

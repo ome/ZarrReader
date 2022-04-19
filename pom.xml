@@ -121,11 +121,7 @@
       <artifactId>formats-api</artifactId>
       <version>6.7.0</version>
     </dependency>
-    <dependency>
-      <groupId>ome</groupId>
-      <artifactId>test-suite</artifactId>
-      <version>6.7.0</version>
-    </dependency>
+
 
   </dependencies>
 
