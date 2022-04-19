@@ -123,10 +123,10 @@
     </dependency>
     <dependency>
       <groupId>ome</groupId>
-      <artifactId>test-suite</artifactId>
+      <artifactId>formats-api</artifactId>
       <version>6.7.0</version>
-      <scope>test</scope>
     </dependency>
+
 
   </dependencies>
 
