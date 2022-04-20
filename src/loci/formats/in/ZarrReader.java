@@ -633,10 +633,10 @@ public class ZarrReader extends FormatReader {
           String well_id =  MetadataTools.createLSID("Well", w);
           store.setWellID(well_id, p, w);
           String[] parts = wellPath.split("/");
-          if (wellRow == null || wellRow.length() == 0) {
+          if (wellRow == null || wellRow.isEmpty()) {
             wellRow = parts[parts.length - 2];
           }
-          if (wellCol == null || wellCol.length() == 0) {
+          if (wellCol == null || wellCol.isEmpty()) {
             wellCol = parts[parts.length - 1];
           }
           int rowIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellRow.toUpperCase());
