@@ -235,8 +235,8 @@ public class S3FileSystemStore implements Store {
       return keys;
     }
     
-    public ArrayList<String> getFiles() throws IOException {
-      ArrayList<String> keys = new ArrayList<String>();
+    public List<String> getFiles() throws IOException {
+      List<String> keys = new ArrayList<String>();
       
       String[] pathSplit = root.toString().split(File.separator);
       String bucketName =  pathSplit[2];
