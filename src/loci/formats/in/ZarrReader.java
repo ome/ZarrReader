@@ -9,13 +9,13 @@ package loci.formats.in;
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -42,7 +42,6 @@ import java.util.Map;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
@@ -489,7 +488,7 @@ public class ZarrReader extends FormatReader {
     super.setSeries(no);
     openZarr();
   }
-  
+
   @Override
   public void setResolution(int no) {
     super.setResolution(no);
@@ -637,10 +636,10 @@ public class ZarrReader extends FormatReader {
         String well_id =  MetadataTools.createLSID("Well", wellCount);
         store.setWellID(well_id, 0, w);
         String[] parts = wellPath.split("/");
-        if (StringUtils.isEmpty(wellRow)) {
+        if (wellRow == null || wellRow.length() == 0) {
           wellRow = parts[parts.length - 2];
         }
-        if (StringUtils.isEmpty(wellCol)) {
+        if (wellCol == null || wellCol.length() == 0) {
           wellCol = parts[parts.length - 1];
         }
         int rowIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellRow.toUpperCase());
@@ -660,7 +659,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseWells(String root, String key, MetadataStore store, int plateIndex, int wellIndex, 
+  private void parseWells(String root, String key, MetadataStore store, int plateIndex, int wellIndex,
       HashMap<Integer, Integer> acqIdsIndexMap) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
     Map<String, Object> attr = zarrService.getGroupAttr(path);
