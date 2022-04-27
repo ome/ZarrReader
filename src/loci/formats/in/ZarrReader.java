@@ -568,7 +568,7 @@ public class ZarrReader extends FormatReader {
           String scalePath = (String) multiScale.get("path");
           int numRes = multiscalePaths.size();
           if (i == 0) {
-            resCounts.put(scalePath, numRes);
+            resCounts.put(key.isEmpty() ? scalePath : key + File.separator + scalePath, numRes);
           }
           resIndexes.put(scalePath, i);
           ArrayList<String> list = resSeries.get(resCounts.size() - 1);
@@ -678,7 +678,7 @@ public class ZarrReader extends FormatReader {
         store.setWellSampleIndex(new NonNegativeInteger(i), plateIndex, wellIndex, i);
         String imageRefPath = "" + i;
         if (key != null && !key.isEmpty()) {
-          imageRefPath = key + File.separator+i;
+          imageRefPath = key + File.separator + i;
         }
         if (resCounts.containsKey(imageRefPath + File.separator + "0")) {
           imageRefPath += File.separator + "0";
