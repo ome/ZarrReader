@@ -147,102 +147,43 @@ public class ZarrReader extends FormatReader {
     String zarrPath = zarrFolder.getAbsolutePath();
     String zarrRootPath = zarrPath.substring(0, zarrPath.indexOf(".zarr") + 5);
     String name = zarrRootPath.substring(zarrRootPath.lastIndexOf(File.separator)+1, zarrRootPath.length() - 5);
-    Location omeMetaFile = new Location( zarrRootPath, name+".ome.xml" );
+    Location omeMetaFile = new Location( zarrRootPath + File.separator + "OME", "METADATA.ome.xml" );
 
     initializeZarrService(zarrRootPath);
 
-    /*
-     * Open OME metadata file
-     * TODO: Old code to either be reworked with writer or removed entirely
-     */
-    if (omeMetaFile.exists()) {
-      Document omeDocument = null;
-      try (RandomAccessInputStream measurement =
-          new RandomAccessInputStream(omeMetaFile.getAbsolutePath())) {
-        try {
-          omeDocument = XMLTools.parseDOM(measurement);
-        }
-        catch (ParserConfigurationException e) {
-          throw new IOException(e);
-        }
-        catch (SAXException e) {
-          throw new IOException(e);
-        }
-      }
-      omeDocument.getDocumentElement().normalize();
-
-      OMEXMLService service = null;
-      String xml = null;
-      try
-      {
-        xml = XMLTools.getXML( omeDocument );
-      }
-      catch (TransformerException e2 )
-      {
-        LOGGER.debug( "", e2 );
-      }
-      OMEXMLMetadata omexmlMeta = null;
-      try
-      {
-        service = new ServiceFactory().getInstance( OMEXMLService.class );
-        omexmlMeta = service.createOMEXMLMetadata( xml );
-      }
-      catch (DependencyException | ServiceException | NullPointerException e1 )
-      {
-        LOGGER.debug( "", e1 );
-      }
-
-      int numDatasets = omexmlMeta.getImageCount();
-
-      int oldSeries = getSeries();
-      core.clear();
-      for (int i=0; i<numDatasets; i++) {
-        CoreMetadata ms = new CoreMetadata();
-        core.add(ms);
-        setSeries(i);
-
-        Integer w = omexmlMeta.getPixelsSizeX(i).getValue();
-        Integer h = omexmlMeta.getPixelsSizeY(i).getValue();
-        Integer t = omexmlMeta.getPixelsSizeT(i).getValue();
-        Integer z = omexmlMeta.getPixelsSizeZ(i).getValue();
-        Integer c = omexmlMeta.getPixelsSizeC(i).getValue();
-        if (w == null || h == null || t == null || z == null | c == null) {
-          throw new FormatException("Image dimensions not found");
-        }
-
-        Boolean endian = zarrService.isLittleEndian();;
-        String pixType = omexmlMeta.getPixelsType(i).toString();
-        ms.dimensionOrder = omexmlMeta.getPixelsDimensionOrder(i).toString();
-        ms.sizeX = w.intValue();
-        ms.sizeY = h.intValue();
-        ms.sizeT = t.intValue();
-        ms.sizeZ = z.intValue();
-        ms.sizeC = c.intValue();
-        ms.imageCount = getSizeZ() * getSizeC() * getSizeT();
-        ms.littleEndian = endian == null ? false : !endian.booleanValue();
-        ms.rgb = false;
-        ms.interleaved = false;
-        ms.indexed = false;
-        ms.falseColor = true;
-        ms.pixelType = FormatTools.pixelTypeFromString(pixType);
-        ms.orderCertain = true;
-        if (omexmlMeta.getPixelsSignificantBits(i) != null) {
-          ms.bitsPerPixel = omexmlMeta.getPixelsSignificantBits(i).getValue();
-        }
-      }
-      setSeries(oldSeries);
-      MetadataConverter.convertMetadata( omexmlMeta, store );
+    if(omeMetaFile.exists()) {
+      parseOMEXML(omeMetaFile, store);
     }
-    else {
-      // Parse base level attributes
-      Map<String, Object> attr = zarrService.getGroupAttr(zarrRootPath);
-      int attrIndex = 0;
-      if (attr != null && !attr.isEmpty()) {
-        parseResolutionCount(zarrRootPath, "");
-        parseOmeroMetadata(zarrRootPath, "");
+
+    // Parse base level attributes
+    Map<String, Object> attr = zarrService.getGroupAttr(zarrRootPath);
+    int attrIndex = 0;
+    if (attr != null && !attr.isEmpty()) {
+      parseResolutionCount(zarrRootPath, "");
+      parseOmeroMetadata(zarrRootPath, "");
+      String jsonAttr;
+      try {
+        jsonAttr = ZarrUtils.toJson(attr, true);
+        store.setXMLAnnotationValue(jsonAttr, attrIndex);
+        String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
+        store.setXMLAnnotationID(xml_id, attrIndex);
+      } catch (JZarrException e) {
+        LOGGER.warn("Failed to convert attributes to JSON");
+        e.printStackTrace();
+      }
+    }
+
+    // Parse group attributes
+    for (String key: zarrService.getGroupKeys(zarrRootPath)) {
+      Map<String, Object> attributes = zarrService.getGroupAttr(zarrRootPath+File.separator+key);
+      if (attributes != null && !attributes.isEmpty()) {
+        parseResolutionCount(zarrRootPath, key);
+        parseLabels(zarrRootPath, key);
+        parseImageLabels(zarrRootPath, key);
+        attrIndex++;
         String jsonAttr;
         try {
-          jsonAttr = ZarrUtils.toJson(attr, true);
+          jsonAttr = ZarrUtils.toJson(attributes, true);
           store.setXMLAnnotationValue(jsonAttr, attrIndex);
           String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
           store.setXMLAnnotationID(xml_id, attrIndex);
@@ -251,107 +192,86 @@ public class ZarrReader extends FormatReader {
           e.printStackTrace();
         }
       }
+    }
 
-      // Parse group attributes
-      for (String key: zarrService.getGroupKeys(zarrRootPath)) {
-        Map<String, Object> attributes = zarrService.getGroupAttr(zarrRootPath+File.separator+key);
-        if (attributes != null && !attributes.isEmpty()) {
-          parseResolutionCount(zarrRootPath, key);
-          parseLabels(zarrRootPath, key);
-          parseImageLabels(zarrRootPath, key);
-          attrIndex++;
-          String jsonAttr;
-          try {
-            jsonAttr = ZarrUtils.toJson(attributes, true);
-            store.setXMLAnnotationValue(jsonAttr, attrIndex);
-            String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
-            store.setXMLAnnotationID(xml_id, attrIndex);
-          } catch (JZarrException e) {
-            LOGGER.warn("Failed to convert attributes to JSON");
-            e.printStackTrace();
-          }
+    // Parse array attributes
+    for (String key: zarrService.getArrayKeys(zarrRootPath)) {
+      Map<String, Object> attributes = zarrService.getArrayAttr(zarrRootPath+File.separator+key);
+      if (attributes != null && !attributes.isEmpty()) {
+        attrIndex++;
+        String jsonAttr;
+        try {
+          jsonAttr = ZarrUtils.toJson(attributes, true);
+          store.setXMLAnnotationValue(jsonAttr, attrIndex);
+          String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
+          store.setXMLAnnotationID(xml_id, attrIndex);
+        } catch (JZarrException e) {
+          LOGGER.warn("Failed to convert attributes to JSON");
+          e.printStackTrace();
+        }
+      }
+    }
+
+    arrayPaths = new ArrayList<String>();
+    arrayPaths.addAll(zarrService.getArrayKeys(zarrRootPath));
+    orderArrayPaths(zarrRootPath);
+
+    core.clear();
+    int resolutionTotal = 0;
+    for (int i=0; i<arrayPaths.size(); i++) {
+      int resolutionCount = 1;
+      if (resCounts.get(arrayPaths.get(i)) != null) {
+        resolutionCount = resCounts.get(arrayPaths.get(i));
+      }
+      int resolutionIndex= 0;
+      if (resIndexes.get(arrayPaths.get(i)) != null) {
+        resolutionIndex = resIndexes.get(arrayPaths.get(i));
+      }
+
+      CoreMetadata ms = new CoreMetadata();
+      core.add(ms);
+
+      if (hasFlattenedResolutions()) {
+        setSeries(i);
+      }
+      else {
+        setSeries(coreIndexToSeries(i));
+        setResolution(resolutionIndex);
+        if (i == resolutionTotal + resolutionCount - 1) {
+          resolutionTotal += resolutionCount;
         }
       }
 
-      // Parse array attributes
-      for (String key: zarrService.getArrayKeys(zarrRootPath)) {
-        Map<String, Object> attributes = zarrService.getArrayAttr(zarrRootPath+File.separator+key);
-        if (attributes != null && !attributes.isEmpty()) {
-          attrIndex++;
-          String jsonAttr;
-          try {
-            jsonAttr = ZarrUtils.toJson(attributes, true);
-            store.setXMLAnnotationValue(jsonAttr, attrIndex);
-            String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
-            store.setXMLAnnotationID(xml_id, attrIndex);
-          } catch (JZarrException e) {
-            LOGGER.warn("Failed to convert attributes to JSON");
-            e.printStackTrace();
-          }
-        }
+      ms.pixelType = zarrService.getPixelType();
+      int[] shape = zarrService.getShape();
+      if (shape.length < 5) {
+        shape = get5DShape(shape);
       }
 
-      arrayPaths = new ArrayList<String>();
-      arrayPaths.addAll(zarrService.getArrayKeys(zarrRootPath));
-      orderArrayPaths(zarrRootPath);
-
-      core.clear();
-      int resolutionTotal = 0;
-      for (int i=0; i<arrayPaths.size(); i++) {
-        int resolutionCount = 1;
-        if (resCounts.get(arrayPaths.get(i)) != null) {
-          resolutionCount = resCounts.get(arrayPaths.get(i));
+      ms.sizeX = shape[4];
+      ms.sizeY = shape[3];
+      ms.sizeT = shape[0];
+      ms.sizeZ = shape[2];
+      ms.sizeC = shape[1];
+      ArrayList<String> pathDimensions = pathArrayDimensions.get(arrayPaths.get(i));
+      if (pathDimensions != null && !pathDimensions.isEmpty()) {
+        ms.sizeX = shape[pathDimensions.indexOf("x")];
+        ms.sizeY = shape[pathDimensions.indexOf("y")];
+        ms.sizeT = shape[pathDimensions.indexOf("t")];
+        ms.sizeZ = shape[pathDimensions.indexOf("z")];
+        ms.sizeC = shape[pathDimensions.indexOf("c")];
+        String newDimOrder = "";
+        for (int d = 1; d < pathDimensions.size() + 1; d++) {
+          newDimOrder += pathDimensions.get(pathDimensions.size() - d).toUpperCase();
         }
-        int resolutionIndex= 0;
-        if (resIndexes.get(arrayPaths.get(i)) != null) {
-          resolutionIndex = resIndexes.get(arrayPaths.get(i));
-        }
-
-        CoreMetadata ms = new CoreMetadata();
-        core.add(ms);
-
-        if (hasFlattenedResolutions()) {
-          setSeries(i);
-        }
-        else {
-          setSeries(coreIndexToSeries(i));
-          setResolution(resolutionIndex);
-          if (i == resolutionTotal + resolutionCount - 1) {
-            resolutionTotal += resolutionCount;
-          }
-        }
-
-        ms.pixelType = zarrService.getPixelType();
-        int[] shape = zarrService.getShape();
-        if (shape.length < 5) {
-          shape = get5DShape(shape);
-        }
-
-        ms.sizeX = shape[4];
-        ms.sizeY = shape[3];
-        ms.sizeT = shape[0];
-        ms.sizeZ = shape[2];
-        ms.sizeC = shape[1];
-        ArrayList<String> pathDimensions = pathArrayDimensions.get(arrayPaths.get(i));
-        if (pathDimensions != null && !pathDimensions.isEmpty()) {
-          ms.sizeX = shape[pathDimensions.indexOf("x")];
-          ms.sizeY = shape[pathDimensions.indexOf("y")];
-          ms.sizeT = shape[pathDimensions.indexOf("t")];
-          ms.sizeZ = shape[pathDimensions.indexOf("z")];
-          ms.sizeC = shape[pathDimensions.indexOf("c")];
-          String newDimOrder = "";
-          for (int d = 1; d < pathDimensions.size() + 1; d++) {
-            newDimOrder += pathDimensions.get(pathDimensions.size() - d).toUpperCase();
-          }
-          dimensionOrder = newDimOrder;
-        }
-        ms.dimensionOrder = dimensionOrder;
-        ms.imageCount = getSizeZ() * getSizeC() * getSizeT();
-        ms.littleEndian = zarrService.isLittleEndian();
-        ms.rgb = false;
-        ms.interleaved = false;
-        ms.resolutionCount = resolutionCount;
+        dimensionOrder = newDimOrder;
       }
+      ms.dimensionOrder = dimensionOrder;
+      ms.imageCount = getSizeZ() * getSizeC() * getSizeT();
+      ms.littleEndian = zarrService.isLittleEndian();
+      ms.rgb = false;
+      ms.interleaved = false;
+      ms.resolutionCount = resolutionCount;
     }
 
     MetadataTools.populatePixels( store, this, true );
@@ -775,6 +695,85 @@ public class ZarrReader extends FormatReader {
         String model = (String) rdefs.get("model");
       }
     }
+  }
+
+  private void parseOMEXML(Location omeMetaFile, MetadataStore store) throws IOException, FormatException {
+    Document omeDocument = null;
+    try (RandomAccessInputStream measurement =
+        new RandomAccessInputStream(omeMetaFile.getAbsolutePath())) {
+      try {
+        omeDocument = XMLTools.parseDOM(measurement);
+      }
+      catch (ParserConfigurationException e) {
+        throw new IOException(e);
+      }
+      catch (SAXException e) {
+        throw new IOException(e);
+      }
+    }
+    omeDocument.getDocumentElement().normalize();
+
+    OMEXMLService service = null;
+    String xml = null;
+    try
+    {
+      xml = XMLTools.getXML( omeDocument );
+    }
+    catch (TransformerException e2 )
+    {
+      LOGGER.debug( "", e2 );
+    }
+    OMEXMLMetadata omexmlMeta = null;
+    try
+    {
+      service = new ServiceFactory().getInstance( OMEXMLService.class );
+      omexmlMeta = service.createOMEXMLMetadata( xml );
+    }
+    catch (DependencyException | ServiceException | NullPointerException e1 )
+    {
+      LOGGER.debug( "", e1 );
+    }
+
+    int numDatasets = omexmlMeta.getImageCount();
+
+    int oldSeries = getSeries();
+    core.clear();
+    for (int i=0; i<numDatasets; i++) {
+      CoreMetadata ms = new CoreMetadata();
+      core.add(ms);
+      setSeries(i);
+
+      Integer w = omexmlMeta.getPixelsSizeX(i).getValue();
+      Integer h = omexmlMeta.getPixelsSizeY(i).getValue();
+      Integer t = omexmlMeta.getPixelsSizeT(i).getValue();
+      Integer z = omexmlMeta.getPixelsSizeZ(i).getValue();
+      Integer c = omexmlMeta.getPixelsSizeC(i).getValue();
+      if (w == null || h == null || t == null || z == null | c == null) {
+        throw new FormatException("Image dimensions not found");
+      }
+
+      Boolean endian = zarrService.isLittleEndian();;
+      String pixType = omexmlMeta.getPixelsType(i).toString();
+      ms.dimensionOrder = omexmlMeta.getPixelsDimensionOrder(i).toString();
+      ms.sizeX = w.intValue();
+      ms.sizeY = h.intValue();
+      ms.sizeT = t.intValue();
+      ms.sizeZ = z.intValue();
+      ms.sizeC = c.intValue();
+      ms.imageCount = getSizeZ() * getSizeC() * getSizeT();
+      ms.littleEndian = endian == null ? false : !endian.booleanValue();
+      ms.rgb = false;
+      ms.interleaved = false;
+      ms.indexed = false;
+      ms.falseColor = true;
+      ms.pixelType = FormatTools.pixelTypeFromString(pixType);
+      ms.orderCertain = true;
+      if (omexmlMeta.getPixelsSignificantBits(i) != null) {
+        ms.bitsPerPixel = omexmlMeta.getPixelsSignificantBits(i).getValue();
+      }
+    }
+    setSeries(oldSeries);
+    MetadataConverter.convertMetadata( omexmlMeta, store );
   }
 
   private Double getDouble(Map<String, Object> src, String key) {
