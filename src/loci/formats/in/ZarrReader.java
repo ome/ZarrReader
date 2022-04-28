@@ -154,7 +154,6 @@ public class ZarrReader extends FormatReader {
     if(omeMetaFile.exists()) {
       parseOMEXML(omeMetaFile, store);
     }
-
     // Parse base level attributes
     Map<String, Object> attr = zarrService.getGroupAttr(zarrRootPath);
     int attrIndex = 0;
