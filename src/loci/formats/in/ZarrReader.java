@@ -489,7 +489,7 @@ public class ZarrReader extends FormatReader {
           if (i == 0) {
             resCounts.put(key.isEmpty() ? scalePath : key + File.separator + scalePath, numRes);
           }
-          resIndexes.put(scalePath, i);
+          resIndexes.put(key.isEmpty() ? scalePath : key + File.separator + scalePath, i);
           ArrayList<String> list = resSeries.get(resCounts.size() - 1);
           list.add(key.isEmpty() ? scalePath : key + File.separator + scalePath);
           resSeries.put(resCounts.size() - 1, list);
