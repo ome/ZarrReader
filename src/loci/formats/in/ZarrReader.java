@@ -68,6 +68,7 @@ import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.JZarrServiceImpl;
 import ome.xml.meta.MetadataConverter;
 import ome.xml.model.primitives.NonNegativeInteger;
+import ome.xml.model.primitives.PositiveInteger;
 import loci.formats.services.OMEXMLService;
 import loci.formats.services.ZarrService;
 
@@ -538,6 +539,7 @@ public class ZarrReader extends FormatReader {
           acqIdsIndexMap.put(acqId, a);
           store.setPlateAcquisitionID(
               MetadataTools.createLSID("PlateAcquisition", 0, acqId), 0, a);
+          store.setPlateAcquisitionMaximumFieldCount(new PositiveInteger(maximumfieldcount), 0, a);
         }
       }
       for (int c = 0; c < columns.size(); c++) {
@@ -551,27 +553,37 @@ public class ZarrReader extends FormatReader {
       for (int w = 0; w < wells.size(); w++) {
         Map<String, Object> well = (Map<String, Object>) wells.get(w);
         String wellPath = (String) well.get("path");
-        String wellCol = (String) well.get("column_index");
-        String wellRow = (String) well.get("row_index");
         String well_id =  MetadataTools.createLSID("Well", wellCount);
         store.setWellID(well_id, 0, w);
-        String[] parts = wellPath.split("/");
-        if (wellRow == null || wellRow.isEmpty()) {
-          wellRow = parts[parts.length - 2];
+
+        // column_index & row_index stored as Integer in bioformats2raw 0.3
+        Integer wellColIndex = (Integer) well.get("column_index");
+        Integer wellRowIndex = (Integer) well.get("row_index");
+        if (wellColIndex == null && wellRowIndex == null) {
+          // columnIndex & rowIndex stored as Integer in OME-NGFF v0.4
+          wellColIndex = (Integer) well.get("columnIndex");
+          wellRowIndex = (Integer) well.get("rowIndex");
         }
-        if (wellCol == null || wellCol.isEmpty()) {
-          wellCol = parts[parts.length - 1];
+        if (wellColIndex != null && wellRowIndex != null) {
+          store.setWellRow(new NonNegativeInteger(wellRowIndex), 0, w);
+          store.setWellColumn(new NonNegativeInteger(wellColIndex), 0, w);
         }
-        int rowIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellRow.toUpperCase());
-        if (rowIndex == -1) {
-          rowIndex = Integer.parseInt(wellRow);
+        else {
+          // for OME-NGFF v0.2 parse row and column index from the path
+          String[] parts = wellPath.split("/");
+          String wellRow = parts[parts.length - 2];
+          String wellCol = parts[parts.length - 1];
+          int rowIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellRow.toUpperCase());
+          if (rowIndex == -1) {
+            rowIndex = Integer.parseInt(wellRow);
+          }
+          int colIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellCol.toUpperCase());
+          if (colIndex == -1) {
+            colIndex = Integer.parseInt(wellCol);
+          }
+          store.setWellRow(new NonNegativeInteger(rowIndex), 0, w);
+          store.setWellColumn(new NonNegativeInteger(colIndex), 0, w);
         }
-        int colIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellCol.toUpperCase());
-        if (colIndex == -1) {
-          colIndex = Integer.parseInt(wellCol);
-        }
-        store.setWellRow(new NonNegativeInteger(rowIndex), 0, w);
-        store.setWellColumn(new NonNegativeInteger(colIndex), 0, w);
         store.setWellExternalIdentifier(wellPath, 0, w);
         parseWells(root, wellPath, store, 0, w, acqIdsIndexMap);
         wellCount++;
@@ -605,7 +617,7 @@ public class ZarrReader extends FormatReader {
         }
         String imageID = MetadataTools.createLSID("Image", coreIndexToSeries(arrayPaths.indexOf(imageRefPath)));
         store.setWellSampleImageRef(imageID, plateIndex, wellIndex, i);
-        if (acquisition != null) {
+        if (acquisition != null && acquisition >= 0) {
           store.setPlateAcquisitionWellSampleRef(site_id, plateIndex, (int) acquisition, i);
         }
         wellSamplesCount++;
