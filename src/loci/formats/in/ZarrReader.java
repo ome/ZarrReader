@@ -36,6 +36,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
@@ -727,6 +728,8 @@ public class ZarrReader extends FormatReader {
     {
       service = new ServiceFactory().getInstance( OMEXMLService.class );
       omexmlMeta = service.createOMEXMLMetadata( xml );
+      Hashtable originalMetadata = service.getOriginalMetadata(omexmlMeta);
+      if (originalMetadata != null) metadata = originalMetadata;
     }
     catch (DependencyException | ServiceException | NullPointerException e1 )
     {
