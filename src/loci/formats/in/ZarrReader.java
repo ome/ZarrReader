@@ -67,6 +67,10 @@ import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.JZarrServiceImpl;
 import ome.xml.meta.MetadataConverter;
+import ome.xml.meta.MetadataRoot;
+import ome.xml.model.MapAnnotation;
+import ome.xml.model.OME;
+import ome.xml.model.StructuredAnnotations;
 import ome.xml.model.primitives.NonNegativeInteger;
 import ome.xml.model.primitives.PositiveInteger;
 import loci.formats.services.OMEXMLService;
@@ -275,9 +279,7 @@ public class ZarrReader extends FormatReader {
       ms.resolutionCount = resolutionCount;
     }
 
-    if (!planesPrePopulated) {
-      MetadataTools.populatePixels( store, this, true );
-    }
+    MetadataTools.populatePixels( store, this, !planesPrePopulated );
     for (int i = 0; i < getSeriesCount(); i++) {
       store.setImageName(arrayPaths.get(seriesToCoreIndex(i)), i);
       store.setImageID(MetadataTools.createLSID("Image", i), i);
@@ -790,6 +792,27 @@ public class ZarrReader extends FormatReader {
       }
     }
     setSeries(oldSeries);
+
+    // Remove old PyramidResolution annotations
+    OME root = (OME) omexmlMeta.getRoot();
+    StructuredAnnotations annotations = root.getStructuredAnnotations();
+    if (annotations != null) {
+      int numMapAnnotations = annotations.sizeOfMapAnnotationList();
+      int index = 0;
+      for (int i = 0; i < numMapAnnotations; i++) {
+        MapAnnotation mapAnnotation = annotations.getMapAnnotation(index);
+        String namespace = mapAnnotation.getNamespace();
+        if (namespace != null && namespace.toLowerCase().contains("pyramidresolution")) {
+          annotations.removeMapAnnotation(mapAnnotation);
+        }
+        else {
+          index++;
+        }
+      }
+      root.setStructuredAnnotations(annotations);
+      omexmlMeta.setRoot((MetadataRoot) root);
+    }
+ 
     MetadataConverter.convertMetadata( omexmlMeta, store );
   }
 
