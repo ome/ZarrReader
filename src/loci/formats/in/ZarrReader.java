@@ -84,7 +84,7 @@ public class ZarrReader extends FormatReader {
   private int wellCount = 0;
   private int wellSamplesCount = 0;
   private HashMap<String, ArrayList<String>> pathArrayDimensions = new HashMap<String, ArrayList<String>>();
-
+  private boolean planesPrePopulated = false;
   private boolean hasSPW = false;
 
   public ZarrReader() {
@@ -275,7 +275,9 @@ public class ZarrReader extends FormatReader {
       ms.resolutionCount = resolutionCount;
     }
 
-    MetadataTools.populatePixels( store, this, true );
+    if (!planesPrePopulated) {
+      MetadataTools.populatePixels( store, this, true );
+    }
     for (int i = 0; i < getSeriesCount(); i++) {
       store.setImageName(arrayPaths.get(seriesToCoreIndex(i)), i);
       store.setImageID(MetadataTools.createLSID("Image", i), i);
@@ -742,6 +744,7 @@ public class ZarrReader extends FormatReader {
       omexmlMeta = service.createOMEXMLMetadata( xml );
       Hashtable originalMetadata = service.getOriginalMetadata(omexmlMeta);
       if (originalMetadata != null) metadata = originalMetadata;
+      planesPrePopulated = true;
     }
     catch (DependencyException | ServiceException | NullPointerException e1 )
     {
