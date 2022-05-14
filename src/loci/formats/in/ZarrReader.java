@@ -543,7 +543,9 @@ public class ZarrReader extends FormatReader {
           acqIdsIndexMap.put(acqId, a);
           store.setPlateAcquisitionID(
               MetadataTools.createLSID("PlateAcquisition", 0, acqId), 0, a);
-          store.setPlateAcquisitionMaximumFieldCount(new PositiveInteger(maximumfieldcount), 0, a);
+          if (maximumfieldcount != null) {
+            store.setPlateAcquisitionMaximumFieldCount(new PositiveInteger(maximumfieldcount), 0, a);
+          }
         }
       }
       for (int c = 0; c < columns.size(); c++) {
