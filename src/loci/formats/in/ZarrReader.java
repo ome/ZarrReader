@@ -32,18 +32,19 @@ package loci.formats.in;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
-import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -833,17 +834,16 @@ public class ZarrReader extends FormatReader {
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
     if (!zarrRootPath.toLowerCase().contains("s3:")) {
-      File folder = new File(zarrRootPath);
-      Collection<File> libs = FileUtils.listFiles(folder, null, true);
-      for (File file : libs) {
-        if (!file.isDirectory()) {
-          usedFiles.add(file.getAbsolutePath());
-        }
+      try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath))) {
+        paths.filter(Files::isRegularFile)
+                .forEach(path -> usedFiles.add(path.toFile().getAbsolutePath()));
+      } catch (IOException e) {
+        e.printStackTrace();
       }
     }
     else {
-      try {
-        usedFiles.addAll(new S3FileSystemStore(Paths.get(zarrRootPath)).getFiles());
+      try (S3FileSystemStore s3Store = new S3FileSystemStore(Paths.get(zarrRootPath))) {
+        usedFiles.addAll(s3Store.getFiles());
       } catch (IOException e) {
         e.printStackTrace();
       }
