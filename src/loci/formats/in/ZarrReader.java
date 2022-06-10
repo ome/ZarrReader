@@ -63,7 +63,6 @@ import loci.formats.FormatException;
 import loci.formats.FormatReader;
 import loci.formats.FormatTools;
 import loci.formats.MetadataTools;
-import loci.formats.S3FileSystemStore;
 import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.JZarrServiceImpl;
@@ -833,21 +832,13 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
-    if (!zarrRootPath.toLowerCase().contains("s3:")) {
-      try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath))) {
-        paths.filter(Files::isRegularFile)
-                .forEach(path -> usedFiles.add(path.toFile().getAbsolutePath()));
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
+    try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath))) {
+      paths.filter(Files::isRegularFile)
+              .forEach(path -> usedFiles.add(path.toFile().getAbsolutePath()));
+    } catch (IOException e) {
+      e.printStackTrace();
     }
-    else {
-      try (S3FileSystemStore s3Store = new S3FileSystemStore(Paths.get(zarrRootPath))) {
-        usedFiles.addAll(s3Store.getFiles());
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
-    }
+
     String[] fileArr = new String[usedFiles.size()];
     fileArr = usedFiles.toArray(fileArr);
     return fileArr;

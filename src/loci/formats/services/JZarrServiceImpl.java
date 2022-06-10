@@ -41,6 +41,9 @@ import java.text.MessageFormat;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.bc.zarr.ArrayParams;
 import com.bc.zarr.Compressor;
 import com.bc.zarr.CompressorFactory;
@@ -51,7 +54,6 @@ import com.bc.zarr.ZarrGroup;
 import loci.common.services.AbstractService;
 import loci.formats.FormatException;
 import loci.formats.FormatTools;
-import loci.formats.S3FileSystemStore;
 import loci.formats.meta.IPyramidStore;
 import loci.formats.meta.MetadataRetrieve;
 import ucar.ma2.InvalidRangeException;
@@ -59,11 +61,11 @@ import ucar.ma2.InvalidRangeException;
 public class JZarrServiceImpl extends AbstractService
 implements ZarrService  {
   // -- Constants --
+  private static final Logger LOGGER = LoggerFactory.getLogger(JZarrServiceImpl.class);
   public static final String NO_ZARR_MSG = "JZARR is required to read Zarr files.";
 
   // -- Fields --
   ZarrArray zarrArray;
-  S3FileSystemStore s3fs;
   String currentId;
   Compressor zlibComp = CompressorFactory.create("zlib", "level", 8);  // 8 = compression level .. valid values 0 .. 9
   Compressor bloscComp = CompressorFactory.create("blosc", "cname", "lz4hc", "clevel", 7);
@@ -75,7 +77,7 @@ implements ZarrService  {
   public JZarrServiceImpl(String root) {
       checkClassDependency(com.bc.zarr.ZarrArray.class);
       if (root != null && root.toLowerCase().contains("s3:")) {
-        s3fs = new S3FileSystemStore(Paths.get(root));
+        LOGGER.warn("S3 access currently not supported");
       }
   }
 
@@ -87,8 +89,7 @@ implements ZarrService  {
       zarrArray = ZarrArray.open(file);
     }
     else {
-      s3fs.updateRoot(file);
-      zarrArray = ZarrArray.open(s3fs);
+      LOGGER.warn("S3 access currently not supported");
     }
   }
   
@@ -103,8 +104,8 @@ implements ZarrService  {
       group = ZarrGroup.open(path);
     }
     else {
-      s3fs.updateRoot(path);
-      group = ZarrGroup.open(s3fs);
+      LOGGER.warn("S3 access currently not supported");
+      return null;
     }
     return group.getAttributes();
   }
@@ -115,8 +116,8 @@ implements ZarrService  {
       array = ZarrArray.open(path);
     }
     else {
-      s3fs.updateRoot(path);
-      array = ZarrArray.open(s3fs);
+      LOGGER.warn("S3 access currently not supported");
+      return null;
     }
     return array.getAttributes();
   }
@@ -127,8 +128,8 @@ implements ZarrService  {
       group = ZarrGroup.open(path);
     }
     else {
-      s3fs.updateRoot(path);
-      group = ZarrGroup.open(s3fs);
+      LOGGER.warn("S3 access currently not supported");
+      return null;
     }
     return group.getGroupKeys();
   }
@@ -139,8 +140,8 @@ implements ZarrService  {
       group = ZarrGroup.open(path);
     }
     else {
-      s3fs.updateRoot(path);
-      group = ZarrGroup.open(s3fs);
+      LOGGER.warn("S3 access currently not supported");
+      return null;
     }
     return group.getArrayKeys();
   }
@@ -246,9 +247,6 @@ implements ZarrService  {
   public void close() throws IOException {
     zarrArray = null;
     currentId = null;
-    if (s3fs != null) {
-      s3fs.close();
-    }
   }
 
   @Override
