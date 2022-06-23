@@ -61,11 +61,15 @@
       <artifactId>formats-api</artifactId>
       <version>6.10.0</version>
     </dependency>
-
     <dependency>
       <groupId>com.bc.zarr</groupId>
       <artifactId>jzarr</artifactId>
       <version>0.3.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.objenesis</groupId>
+      <artifactId>objenesis</artifactId>
+      <version>2.5.1</version>
     </dependency>
 
     <dependency>
