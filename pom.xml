@@ -56,6 +56,11 @@
   </pluginRepositories>
 
   <dependencies>
+    <dependency>
+      <groupId>ome</groupId>
+      <artifactId>formats-api</artifactId>
+      <version>6.10.0</version>
+    </dependency>
 
     <dependency>
       <groupId>com.bc.zarr</groupId>
@@ -75,6 +80,7 @@
       <version>6.8</version>
     </dependency>
 
+
     <dependency>
       <!-- NB: We want this, despite warning from dependency:analyze. -->
       <groupId>xalan</groupId>
@@ -89,11 +95,7 @@
       <version>2.7.2</version>
       <scope>runtime</scope>
     </dependency>
-    <dependency>
-      <groupId>ome</groupId>
-      <artifactId>formats-api</artifactId>
-      <version>6.10.0</version>
-    </dependency>
+
 
 
   </dependencies>
