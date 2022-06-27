@@ -32,18 +32,19 @@ package loci.formats.in;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
-import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -62,7 +63,6 @@ import loci.formats.FormatException;
 import loci.formats.FormatReader;
 import loci.formats.FormatTools;
 import loci.formats.MetadataTools;
-import loci.formats.S3FileSystemStore;
 import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.JZarrServiceImpl;
@@ -832,22 +832,13 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
-    if (!zarrRootPath.toLowerCase().contains("s3:")) {
-      File folder = new File(zarrRootPath);
-      Collection<File> libs = FileUtils.listFiles(folder, null, true);
-      for (File file : libs) {
-        if (!file.isDirectory()) {
-          usedFiles.add(file.getAbsolutePath());
-        }
-      }
+    try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath))) {
+      paths.filter(Files::isRegularFile)
+              .forEach(path -> usedFiles.add(path.toFile().getAbsolutePath()));
+    } catch (IOException e) {
+      e.printStackTrace();
     }
-    else {
-      try {
-        usedFiles.addAll(new S3FileSystemStore(Paths.get(zarrRootPath)).getFiles());
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
-    }
+
     String[] fileArr = new String[usedFiles.size()];
     fileArr = usedFiles.toArray(fileArr);
     return fileArr;
