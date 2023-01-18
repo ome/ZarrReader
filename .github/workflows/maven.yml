@@ -23,7 +23,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: ${{ matrix.java }}
-          java-distribution: 'zulu'
+          distribution: 'zulu'
           cache: 'maven'
       - name: Build
         run: mvn ${{ env.maven_commands }}
@@ -56,7 +56,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: 1.8
-          java-distribution: 'zulu'
+          distribution: 'zulu'
           server-id: ${{ steps.set_server.outputs.server }}
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
