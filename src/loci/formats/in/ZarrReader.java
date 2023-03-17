@@ -70,6 +70,8 @@ import ome.xml.meta.MetadataConverter;
 import ome.xml.meta.MetadataRoot;
 import ome.xml.model.MapAnnotation;
 import ome.xml.model.OME;
+import ome.xml.model.Plate;
+import ome.xml.model.Screen;
 import ome.xml.model.StructuredAnnotations;
 import ome.xml.model.primitives.NonNegativeInteger;
 import ome.xml.model.primitives.PositiveInteger;
@@ -548,19 +550,31 @@ public class ZarrReader extends FormatReader {
           }
         }
       }
-      for (int c = 0; c < columns.size(); c++) {
-        Map<String, Object> column = (Map<String, Object>) columns.get(c);
-        String colName = (String) column.get("name");
-      }
+      
+//      TODO: Likely remove as values unused
+//      for (int c = 0; c < columns.size(); c++) {
+//        Map<String, Object> column = (Map<String, Object>) columns.get(c);
+//        String colName = (String) column.get("name");
+//      }
+//      for (int r = 0; r < rows.size(); r++) {
+//        Map<String, Object> row = (Map<String, Object>) rows.get(r);
+//        String rowName = (String) row.get("name");
+//      }
+      
+      //Create empty wells for each row and column
+      wellCount  = rows.size() * columns.size();
       for (int r = 0; r < rows.size(); r++) {
-        Map<String, Object> row = (Map<String, Object>) rows.get(r);
-        String rowName = (String) row.get("name");
+        for (int c = 0; c < columns.size(); c++) {
+          int wellIndex = (r * columns.size()) + c;
+          String well_id =  MetadataTools.createLSID("Well", 0, wellIndex);
+          store.setWellID(well_id, 0, wellIndex);
+          store.setWellRow(new NonNegativeInteger(r), 0, wellIndex);
+          store.setWellColumn(new NonNegativeInteger(c), 0, wellIndex);
+        }
       }
       for (int w = 0; w < wells.size(); w++) {
         Map<String, Object> well = (Map<String, Object>) wells.get(w);
         String wellPath = (String) well.get("path");
-        String well_id =  MetadataTools.createLSID("Well", wellCount);
-        store.setWellID(well_id, 0, w);
 
         // column_index & row_index stored as Integer in bioformats2raw 0.3
         Integer wellColIndex = (Integer) well.get("column_index");
@@ -570,29 +584,23 @@ public class ZarrReader extends FormatReader {
           wellColIndex = (Integer) well.get("columnIndex");
           wellRowIndex = (Integer) well.get("rowIndex");
         }
-        if (wellColIndex != null && wellRowIndex != null) {
-          store.setWellRow(new NonNegativeInteger(wellRowIndex), 0, w);
-          store.setWellColumn(new NonNegativeInteger(wellColIndex), 0, w);
-        }
-        else {
+        if (wellColIndex == null || wellRowIndex == null) {
           // for OME-NGFF v0.2 parse row and column index from the path
           String[] parts = wellPath.split("/");
           String wellRow = parts[parts.length - 2];
           String wellCol = parts[parts.length - 1];
-          int rowIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellRow.toUpperCase());
-          if (rowIndex == -1) {
-            rowIndex = Integer.parseInt(wellRow);
+          wellRowIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellRow.toUpperCase());
+          if (wellRowIndex == -1) {
+            wellRowIndex = Integer.parseInt(wellRow);
           }
-          int colIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellCol.toUpperCase());
-          if (colIndex == -1) {
-            colIndex = Integer.parseInt(wellCol);
+          wellColIndex = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(wellCol.toUpperCase());
+          if (wellColIndex == -1) {
+            wellColIndex = Integer.parseInt(wellCol);
           }
-          store.setWellRow(new NonNegativeInteger(rowIndex), 0, w);
-          store.setWellColumn(new NonNegativeInteger(colIndex), 0, w);
         }
-        store.setWellExternalIdentifier(wellPath, 0, w);
-        parseWells(root, wellPath, store, 0, w, acqIdsIndexMap);
-        wellCount++;
+        int wellIndex = (wellRowIndex * columns.size()) + wellColIndex;
+        store.setWellExternalIdentifier(wellPath, 0, wellIndex);
+        parseWells(root, wellPath, store, 0, wellIndex, acqIdsIndexMap);
       }
     }
   }
@@ -611,7 +619,7 @@ public class ZarrReader extends FormatReader {
         if (acqIdsIndexMap.containsKey(acquisition)) {
           acquisition = acqIdsIndexMap.get(acquisition);
         }
-        String site_id = MetadataTools.createLSID("WellSample", wellSamplesCount);
+        String site_id = MetadataTools.createLSID("WellSample", plateIndex, wellIndex, i);
         store.setWellSampleID(site_id, plateIndex, wellIndex, i);
         store.setWellSampleIndex(new NonNegativeInteger(i), plateIndex, wellIndex, i);
         String imageRefPath = "" + i;
@@ -814,6 +822,19 @@ public class ZarrReader extends FormatReader {
       root.setStructuredAnnotations(annotations);
       omexmlMeta.setRoot((MetadataRoot) root);
     }
+    
+    // Remove old Screen and Plate metadata
+    int screenSize = root.sizeOfScreenList();
+    for (int i = 0; i < screenSize; i++) {
+      root.removeScreen(root.getScreen(i));
+    }
+    
+    int plateSize = root.sizeOfPlateList();
+    for (int i = 0; i < plateSize; i++) {
+      root.removePlate(root.getPlate(i));
+    }
+    
+    omexmlMeta.setRoot((MetadataRoot) root);
  
     MetadataConverter.convertMetadata( omexmlMeta, store );
   }
