@@ -36,10 +36,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -179,7 +182,9 @@ public class ZarrReader extends FormatReader {
     }
 
     // Parse group attributes
-    for (String key: zarrService.getGroupKeys(zarrRootPath)) {
+    Set<String> groupKeys = zarrService.getGroupKeys(zarrRootPath);
+    List<String> orderedGroupKeys = reorderGroupKeys(groupKeys);
+    for (String key: orderedGroupKeys) {
       Map<String, Object> attributes = zarrService.getGroupAttr(zarrRootPath+File.separator+key);
       if (attributes != null && !attributes.isEmpty()) {
         parseResolutionCount(zarrRootPath, key);
@@ -287,6 +292,55 @@ public class ZarrReader extends FormatReader {
     parsePlate(zarrRootPath, "", store);
 
     setSeries(0);
+  }
+
+  private List<String> reorderGroupKeys(Set<String> groupKeys) {
+    // Reorder group keys to avoid order such A/1, A/10, A/11, A/12, A/2, A/20, A/3, A/4 
+    List<String> groupKeysList = new ArrayList<String>();
+    groupKeysList.addAll(groupKeys);
+    Collections.sort(groupKeysList, comp);
+    return groupKeysList;
+  }
+  
+  Comparator<String> comp = (a,b)->{
+    String[] aParts = a.split("/");
+    String[] bParts = b.split("/");
+    
+    int numParts = aParts.length - bParts.length;
+    if (numParts != 0) return numParts;
+    
+    for (int i = 0; i < aParts.length; i++) {
+      String aPart = aParts[i];
+      String bPart = bParts[i];
+      
+      boolean isAInt = isInteger(aPart);
+      boolean isBInt = isInteger(bPart);
+      if (isAInt && !isBInt) return -1;
+      if (!isAInt && isBInt) return 1;
+      
+      if (isAInt) {
+        int numResult = Integer.compare(Integer.valueOf(aPart), Integer.valueOf(bPart));
+        if (numResult != 0) return numResult;
+      }
+      else {
+        int stringResult = aPart.compareTo(bPart);
+        if (stringResult != 0) return stringResult;
+      }
+    }
+    
+    return 0;
+  };
+  
+  private static boolean isInteger(String s) {
+    if(s.isEmpty()) return false;
+    for(int i = 0; i < s.length(); i++) {
+      if(i == 0 && s.charAt(i) == '-') {
+        if(s.length() == 1) return false;
+        else continue;
+      }
+      if(Character.digit(s.charAt(i), 10) < 0) return false;
+    }
+    return true;
   }
 
   /**
