@@ -298,11 +298,11 @@ public class ZarrReader extends FormatReader {
     // Reorder group keys to avoid order such A/1, A/10, A/11, A/12, A/2, A/20, A/3, A/4 
     List<String> groupKeysList = new ArrayList<String>();
     groupKeysList.addAll(groupKeys);
-    Collections.sort(groupKeysList, comp);
+    Collections.sort(groupKeysList, keyComparator);
     return groupKeysList;
   }
   
-  Comparator<String> comp = (a,b)->{
+  private static Comparator<String> keyComparator = (a,b)->{
     String[] aParts = a.split("/");
     String[] bParts = b.split("/");
     
