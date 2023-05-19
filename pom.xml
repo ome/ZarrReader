@@ -39,11 +39,6 @@
       <name>OME Artifactory</name>
       <url>https://artifacts.openmicroscopy.org/artifactory/maven/</url>
     </repository>
-    <repository>
-      <id>bc-nexus-repo</id>
-      <name>Brockmann-Consult Public Maven Repository</name>
-      <url>https://nexus.senbox.net/nexus/content/groups/public/</url>
-    </repository>
   </repositories>
 
   <pluginRepositories>
@@ -62,9 +57,9 @@
       <version>6.10.0</version>
     </dependency>
     <dependency>
-      <groupId>com.bc.zarr</groupId>
+      <groupId>dev.zarr</groupId>
       <artifactId>jzarr</artifactId>
-      <version>0.3.4</version>
+      <version>0.3.7</version>
     </dependency>
 
     <dependency>
