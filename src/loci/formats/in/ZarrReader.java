@@ -156,14 +156,15 @@ public class ZarrReader extends FormatReader {
     String zarrRootPath = zarrPath.substring(0, zarrPath.indexOf(".zarr") + 5);
     String name = zarrRootPath.substring(zarrRootPath.lastIndexOf(File.separator)+1, zarrRootPath.length() - 5);
     Location omeMetaFile = new Location( zarrRootPath + File.separator + "OME", "METADATA.ome.xml" );
+    String canonicalPath = new Location(zarrRootPath).getCanonicalPath();
 
-    initializeZarrService(zarrRootPath);
+    initializeZarrService(canonicalPath);
 
     if(omeMetaFile.exists()) {
       parseOMEXML(omeMetaFile, store);
     }
     // Parse base level attributes
-    Map<String, Object> attr = zarrService.getGroupAttr(zarrRootPath);
+    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
     int attrIndex = 0;
     if (attr != null && !attr.isEmpty()) {
       parseResolutionCount(zarrRootPath, "");
@@ -181,8 +182,8 @@ public class ZarrReader extends FormatReader {
     }
 
     // Parse group attributes
-    for (String key: zarrService.getGroupKeys(zarrRootPath)) {
-      Map<String, Object> attributes = zarrService.getGroupAttr(zarrRootPath+File.separator+key);
+    for (String key: zarrService.getGroupKeys(canonicalPath)) {
+      Map<String, Object> attributes = zarrService.getGroupAttr(canonicalPath+File.separator+key);
       if (attributes != null && !attributes.isEmpty()) {
         parseResolutionCount(zarrRootPath, key);
         parseLabels(zarrRootPath, key);
@@ -202,8 +203,8 @@ public class ZarrReader extends FormatReader {
     }
 
     // Parse array attributes
-    for (String key: zarrService.getArrayKeys(zarrRootPath)) {
-      Map<String, Object> attributes = zarrService.getArrayAttr(zarrRootPath+File.separator+key);
+    for (String key: zarrService.getArrayKeys(canonicalPath)) {
+      Map<String, Object> attributes = zarrService.getArrayAttr(canonicalPath+File.separator+key);
       if (attributes != null && !attributes.isEmpty()) {
         attrIndex++;
         String jsonAttr;
@@ -220,7 +221,7 @@ public class ZarrReader extends FormatReader {
     }
 
     arrayPaths = new ArrayList<String>();
-    arrayPaths.addAll(zarrService.getArrayKeys(zarrRootPath));
+    arrayPaths.addAll(zarrService.getArrayKeys(canonicalPath));
     orderArrayPaths(zarrRootPath);
 
     core.clear();
