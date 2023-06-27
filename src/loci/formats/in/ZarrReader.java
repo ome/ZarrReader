@@ -329,7 +329,8 @@ public class ZarrReader extends FormatReader {
   @Override
   public void reopenFile() throws IOException {
     try {
-      initializeZarrService(currentId);
+      String canonicalPath = new Location(currentId).getCanonicalPath();
+      initializeZarrService(canonicalPath);
     }
     catch (FormatException e) {
       throw new IOException(e);
@@ -434,7 +435,8 @@ public class ZarrReader extends FormatReader {
             seriesIndex += resolution;
           }
           newZarrPath += File.separator + arrayPaths.get(seriesIndex);
-          zarrService.open(newZarrPath);
+          String canonicalPath = new Location(newZarrPath).getCanonicalPath();
+          zarrService.open(canonicalPath);
         }
       }
     } catch (IOException | FormatException e) {
@@ -455,7 +457,8 @@ public class ZarrReader extends FormatReader {
 
   private void parseResolutionCount(String root, String key) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
-    Map<String, Object> attr = zarrService.getGroupAttr(path);
+    String canonicalPath = new Location(path).getCanonicalPath();
+    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
     ArrayList<Object> multiscales = (ArrayList<Object>) attr.get("multiscales");
     if (multiscales != null) {
       for (int x = 0; x < multiscales.size(); x++) {
@@ -522,7 +525,8 @@ public class ZarrReader extends FormatReader {
 
   private void parsePlate(String root, String key, MetadataStore store) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
-    Map<String, Object> attr = zarrService.getGroupAttr(path);
+    String canonicalPath = new Location(path).getCanonicalPath();
+    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
     Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
     if (plates != null) {
       ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
@@ -609,7 +613,8 @@ public class ZarrReader extends FormatReader {
   private void parseWells(String root, String key, MetadataStore store, int plateIndex, int wellIndex,
       HashMap<Integer, Integer> acqIdsIndexMap) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
-    Map<String, Object> attr = zarrService.getGroupAttr(path);
+    String canonicalPath = new Location(path).getCanonicalPath();
+    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
     Map<Object, Object> wells = (Map<Object, Object>) attr.get("well");
     if (wells != null) {
       ArrayList<Object> images = (ArrayList<Object>)wells.get("images");
@@ -642,7 +647,8 @@ public class ZarrReader extends FormatReader {
 
   private void parseLabels(String root, String key) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
-    Map<String, Object> attr = zarrService.getGroupAttr(path);
+    String canonicalPath = new Location(path).getCanonicalPath();
+    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
     ArrayList<Object> labels = (ArrayList<Object>) attr.get("labels");
     if (labels != null) {
       for (int l = 0; l < labels.size(); l++) {
@@ -653,7 +659,8 @@ public class ZarrReader extends FormatReader {
 
   private void parseImageLabels(String root, String key) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
-    Map<String, Object> attr = zarrService.getGroupAttr(path);
+    String canonicalPath = new Location(path).getCanonicalPath();
+    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
     Map<String, Object> imageLabel = (Map<String, Object>) attr.get("image-label");
     if (imageLabel != null) {
       String version = (String) imageLabel.get("version");
@@ -692,7 +699,8 @@ public class ZarrReader extends FormatReader {
 
   private void parseOmeroMetadata(String root, String key) throws IOException, FormatException {
     String path = key.isEmpty() ? root : root + File.separator + key;
-    Map<String, Object> attr = zarrService.getGroupAttr(path);
+    String canonicalPath = new Location(path).getCanonicalPath();
+    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
     Map<String, Object> omeroMetadata = (Map<String, Object>) attr.get("omero");
     if (omeroMetadata != null) {
       Integer id = (Integer) omeroMetadata.get("id");
