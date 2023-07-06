@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.FileVisitOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -862,7 +863,7 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
-    try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath))) {
+    try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
       paths.filter(Files::isRegularFile)
               .forEach(path -> usedFiles.add(path.toFile().getAbsolutePath()));
     } catch (IOException e) {
