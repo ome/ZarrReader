@@ -53,6 +53,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import loci.common.DataTools;
+import loci.common.Location;
 import loci.formats.FormatException;
 import loci.formats.FormatTools;
 import loci.formats.in.ZarrReader;
@@ -79,7 +80,8 @@ public class ZarrReaderTest {
     reader = new ZarrReaderMock(zarrService);
     file = File.createTempFile("tileTest", ".zarr");
     String rootPath = file.getAbsolutePath();
-    
+    String canonicalPath = new Location(rootPath).getCanonicalPath();
+
     Map<String, Object> topLevelAttributes = new HashMap<String, Object>();
     ArrayList<Object> multiscales = new ArrayList<Object>();
     Map<String, Object> datasets = new HashMap<String, Object>();
@@ -97,8 +99,8 @@ public class ZarrReaderTest {
     datasets.put("axes", Arrays.asList("t", "c", "z", "y", "x"));
     multiscales.add(datasets);
     topLevelAttributes.put("multiscales", multiscales);
-    
-    when(zarrService.getGroupAttr(rootPath)).thenReturn(topLevelAttributes);
+
+    when(zarrService.getGroupAttr(canonicalPath)).thenReturn(topLevelAttributes);
     when(zarrService.getShape()).thenReturn(shape);
     when(zarrService.getPixelType()).thenReturn(0);
     reader.setId(file.getAbsolutePath());
