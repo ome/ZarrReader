@@ -866,10 +866,11 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
+    boolean skipPixels = noPixels || !listPixels();
     try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
       paths.filter(Files::isRegularFile) 
-      .forEach(path -> {if (!noPixels || !listPixels() || 
-          (noPixels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
+      .forEach(path -> {if (!skipPixels || 
+          (skipPixels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
         usedFiles.add(path.toFile().getAbsolutePath());
       });
     } catch (IOException e) {
