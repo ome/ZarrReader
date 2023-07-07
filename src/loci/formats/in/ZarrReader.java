@@ -93,6 +93,9 @@ public class ZarrReader extends FormatReader {
   private HashMap<String, ArrayList<String>> pathArrayDimensions = new HashMap<String, ArrayList<String>>();
   private boolean planesPrePopulated = false;
   private boolean hasSPW = false;
+  
+  public static final String LIST_PIXELS_KEY = "omezarr.list_pixels";
+  public static final boolean LIST_PIXELS_DEFAULT = false;
 
   public ZarrReader() {
     super("Zarr", "zarr");
@@ -864,8 +867,11 @@ public class ZarrReader extends FormatReader {
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
     try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
-      paths.filter(Files::isRegularFile)
-              .forEach(path -> usedFiles.add(path.toFile().getAbsolutePath()));
+      paths.filter(Files::isRegularFile) 
+      .forEach(path -> {if (!noPixels || !listPixels() || 
+          (noPixels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
+        usedFiles.add(path.toFile().getAbsolutePath());
+      });
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -881,6 +887,23 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     return hasSPW ? new String[] {FormatTools.HCS_DOMAIN} :
       FormatTools.NON_SPECIAL_DOMAINS;
+  }
+
+  /* @see loci.formats.FormatReader#initFile(String) */
+  @Override
+  protected ArrayList<String> getAvailableOptions() {
+    ArrayList<String> optionsList = super.getAvailableOptions();
+    optionsList.add(LIST_PIXELS_KEY);
+    return optionsList;
+  }
+
+  public boolean listPixels() {
+    MetadataOptions options = getMetadataOptions();
+    if (options instanceof DynamicMetadataOptions) {
+      return ((DynamicMetadataOptions) options).getBoolean(
+          LIST_PIXELS_KEY, LIST_PIXELS_DEFAULT);
+    }
+    return LIST_PIXELS_DEFAULT;
   }
 
 }
