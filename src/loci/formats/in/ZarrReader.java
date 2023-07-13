@@ -160,8 +160,9 @@ public class ZarrReader extends FormatReader {
 
     initializeZarrService(zarrRootPath);
 
+    ArrayList<String> omeSeriesOrder = new ArrayList<String>();
     if(omeMetaFile.exists()) {
-      parseOMEXML(omeMetaFile, store);
+      parseOMEXML(omeMetaFile, store, omeSeriesOrder);
     }
     // Parse base level attributes
     Map<String, Object> attr = zarrService.getGroupAttr(zarrRootPath);
@@ -183,7 +184,7 @@ public class ZarrReader extends FormatReader {
 
     // Parse group attributes
     Set<String> groupKeys = zarrService.getGroupKeys(zarrRootPath);
-    List<String> orderedGroupKeys = reorderGroupKeys(groupKeys);
+    List<String> orderedGroupKeys = reorderGroupKeys(groupKeys, omeSeriesOrder);
     for (String key: orderedGroupKeys) {
       Map<String, Object> attributes = zarrService.getGroupAttr(zarrRootPath+File.separator+key);
       if (attributes != null && !attributes.isEmpty()) {
@@ -292,6 +293,19 @@ public class ZarrReader extends FormatReader {
     parsePlate(zarrRootPath, "", store);
 
     setSeries(0);
+  }
+
+  private List<String> reorderGroupKeys(Set<String> groupKeys, List<String> originalKeys) {
+    // Reorder group keys to maintain the original order from the OME-XML provided by bioformats2raw
+    if (originalKeys.isEmpty() || !groupKeys.containsAll(originalKeys)) {
+      LOGGER.warn("Mismatch with group key paths and original OME-XML metadata, original ordering wont be maintained");
+      return reorderGroupKeys(groupKeys);
+    }
+    List<String> groupKeysList = new ArrayList<String>();
+    groupKeys.removeAll(originalKeys);
+    groupKeysList.addAll(originalKeys);
+    groupKeysList.addAll(groupKeys);
+    return groupKeysList;
   }
 
   private List<String> reorderGroupKeys(Set<String> groupKeys) {
@@ -769,7 +783,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseOMEXML(Location omeMetaFile, MetadataStore store) throws IOException, FormatException {
+  private void parseOMEXML(Location omeMetaFile, MetadataStore store, ArrayList<String> origSeries) throws IOException, FormatException {
     Document omeDocument = null;
     try (RandomAccessInputStream measurement =
         new RandomAccessInputStream(omeMetaFile.getAbsolutePath())) {
@@ -811,6 +825,24 @@ public class ZarrReader extends FormatReader {
 
     int numDatasets = omexmlMeta.getImageCount();
 
+    // Map of the well location for each imageReference
+    // Later we will map the series index to the imageReference
+    // This allows us to maintain the series order when parsing the Zarr groups
+    Map<String, String> imageRefPaths = new HashMap<String, String>();
+    for (int plateIndex = 0; plateIndex < omexmlMeta.getPlateCount(); plateIndex++) { 
+      for (int wellIndex = 0; wellIndex < omexmlMeta.getWellCount(plateIndex); wellIndex++) { 
+        NonNegativeInteger col = omexmlMeta.getWellColumn(plateIndex, wellIndex);
+        NonNegativeInteger row = omexmlMeta.getWellRow(plateIndex, wellIndex);
+        
+        String rowLetter = getRowString(row.getValue());
+        String expectedPath = rowLetter + File.separator + (col.getValue() + 1) + File.separator  + "0";
+        for (int wellSampleIndex = 0; wellSampleIndex < omexmlMeta.getWellSampleCount(plateIndex, wellIndex); wellSampleIndex++) { 
+          String imageRef = omexmlMeta.getWellSampleImageRef(plateIndex, wellIndex, wellSampleIndex);
+          imageRefPaths.put(imageRef, expectedPath);
+        }
+      }
+    }
+    
     int oldSeries = getSeries();
     core.clear();
     for (int i=0; i<numDatasets; i++) {
@@ -827,7 +859,13 @@ public class ZarrReader extends FormatReader {
         throw new FormatException("Image dimensions not found");
       }
 
-      Boolean endian = zarrService.isLittleEndian();;
+      String imageId = omexmlMeta.getImageID(i);
+      if (!imageRefPaths.isEmpty() && imageRefPaths.containsKey(imageId)) {
+        String expectedZarrPath = imageRefPaths.get(imageId);
+        origSeries.add(expectedZarrPath);
+      }
+
+      Boolean endian = zarrService.isLittleEndian();
       String pixType = omexmlMeta.getPixelsType(i).toString();
       ms.dimensionOrder = omexmlMeta.getPixelsDimensionOrder(i).toString();
       ms.sizeX = w.intValue();
@@ -870,6 +908,16 @@ public class ZarrReader extends FormatReader {
     }
  
     MetadataConverter.convertMetadata( omexmlMeta, store );
+  }
+
+  public static String getRowString(int rowIndex) {
+    StringBuilder sb = new StringBuilder();
+    if (rowIndex == 0) sb.append('A');
+    while (rowIndex > 0) {
+        sb.append((char)('A' + (rowIndex % 26)));
+        rowIndex /= 26;
+    }
+    return sb.reverse().toString();
   }
 
   private Double getDouble(Map<String, Object> src, String key) {
