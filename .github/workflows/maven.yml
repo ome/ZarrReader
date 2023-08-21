@@ -65,5 +65,3 @@ jobs:
         env:
           MAVEN_USERNAME: ${{ secrets.CI_DEPLOY_USER }}
           MAVEN_PASSWORD: ${{ secrets.CI_DEPLOY_PASS }}
-
-
