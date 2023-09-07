@@ -434,9 +434,17 @@ public class ZarrReader extends FormatReader {
 
   @Override
   public void setResolution(int no) {
-    super.setResolution(no);
-    openZarr();
+    setResolution(no, false);
   }
+  
+  @Override
+  public void setResolution(int no, boolean openZarr) {
+    super.setResolution(no);
+    if (openZarr) {
+      openZarr();
+    }
+  }
+
 
   private void openZarr() {
     try {
