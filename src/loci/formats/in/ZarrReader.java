@@ -82,6 +82,8 @@ import loci.formats.services.ZarrService;
 
 public class ZarrReader extends FormatReader {
 
+  public static final String SAVE_ANNOTATIONS_KEY = "zarrreader.save_annotations";
+  public static final boolean SAVE_ANNOTATIONS_DEFAULT = false;
   protected transient ZarrService zarrService;
   private ArrayList<String> arrayPaths= new ArrayList<String>();
   private HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>();
@@ -168,8 +170,8 @@ public class ZarrReader extends FormatReader {
     Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
     int attrIndex = 0;
     if (attr != null && !attr.isEmpty()) {
-      parseResolutionCount(zarrRootPath, "");
-      parseOmeroMetadata(zarrRootPath, "");
+      parseResolutionCount(zarrRootPath, "", attr);
+      parseOmeroMetadata(zarrRootPath, attr);
       String jsonAttr;
       try {
         jsonAttr = ZarrUtils.toJson(attr, true);
@@ -186,44 +188,48 @@ public class ZarrReader extends FormatReader {
     for (String key: zarrService.getGroupKeys(canonicalPath)) {
       Map<String, Object> attributes = zarrService.getGroupAttr(canonicalPath+File.separator+key);
       if (attributes != null && !attributes.isEmpty()) {
-        parseResolutionCount(zarrRootPath, key);
-        parseLabels(zarrRootPath, key);
-        parseImageLabels(zarrRootPath, key);
+        parseResolutionCount(zarrRootPath, key, attributes);
+        parseLabels(zarrRootPath, attributes);
+        parseImageLabels(zarrRootPath, attributes);
         attrIndex++;
-        String jsonAttr;
-        try {
-          jsonAttr = ZarrUtils.toJson(attributes, true);
-          store.setXMLAnnotationValue(jsonAttr, attrIndex);
-          String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
-          store.setXMLAnnotationID(xml_id, attrIndex);
-        } catch (JZarrException e) {
-          LOGGER.warn("Failed to convert attributes to JSON");
-          e.printStackTrace();
+        if (saveAnnotations()) {
+          String jsonAttr;
+          try {
+            jsonAttr = ZarrUtils.toJson(attributes, true);
+            store.setXMLAnnotationValue(jsonAttr, attrIndex);
+            String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
+            store.setXMLAnnotationID(xml_id, attrIndex);
+          } catch (JZarrException e) {
+            LOGGER.warn("Failed to convert attributes to JSON");
+            e.printStackTrace();
+          }
         }
       }
     }
 
     // Parse array attributes
-    for (String key: zarrService.getArrayKeys(canonicalPath)) {
-      Map<String, Object> attributes = zarrService.getArrayAttr(canonicalPath+File.separator+key);
-      if (attributes != null && !attributes.isEmpty()) {
-        attrIndex++;
-        String jsonAttr;
-        try {
-          jsonAttr = ZarrUtils.toJson(attributes, true);
-          store.setXMLAnnotationValue(jsonAttr, attrIndex);
-          String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
-          store.setXMLAnnotationID(xml_id, attrIndex);
-        } catch (JZarrException e) {
-          LOGGER.warn("Failed to convert attributes to JSON");
-          e.printStackTrace();
-        }
-      }
-    }
-
     arrayPaths = new ArrayList<String>();
     arrayPaths.addAll(zarrService.getArrayKeys(canonicalPath));
     orderArrayPaths(zarrRootPath);
+
+    if (saveAnnotations()) {
+      for (String key: arrayPaths) {
+        Map<String, Object> attributes = zarrService.getArrayAttr(zarrRootPath+File.separator+key);
+        if (attributes != null && !attributes.isEmpty()) {
+          attrIndex++;
+          String jsonAttr;
+          try {
+            jsonAttr = ZarrUtils.toJson(attributes, true);
+            store.setXMLAnnotationValue(jsonAttr, attrIndex);
+            String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
+            store.setXMLAnnotationID(xml_id, attrIndex);
+          } catch (JZarrException e) {
+            LOGGER.warn("Failed to convert attributes to JSON");
+            e.printStackTrace();
+          }
+        }
+      }
+    }
 
     core.clear();
     int resolutionTotal = 0;
@@ -241,10 +247,10 @@ public class ZarrReader extends FormatReader {
       core.add(ms);
 
       if (hasFlattenedResolutions()) {
-        setSeries(i);
+        setSeries(i, true);
       }
       else {
-        setSeries(coreIndexToSeries(i));
+        setSeries(coreIndexToSeries(i), true);
         setResolution(resolutionIndex);
         if (i == resolutionTotal + resolutionCount - 1) {
           resolutionTotal += resolutionCount;
@@ -346,6 +352,7 @@ public class ZarrReader extends FormatReader {
   @Override
   public byte[] openBytes(int no, byte[] buf, int x, int y, int w, int h) throws FormatException, IOException {
     FormatTools.checkPlaneParameters(this, no, buf.length, x, y, w, h);
+    openZarr();
     int[] coordinates = getZCTCoords(no);
     int [] shape = {1, 1, 1, h, w};
     int zarrArrayShapeSize = zarrService.getShape().length;
@@ -415,8 +422,14 @@ public class ZarrReader extends FormatReader {
 
   @Override
   public void setSeries(int no) {
+    setSeries(no, false);
+  }
+  
+  public void setSeries(int no, boolean openZarr) {
     super.setSeries(no);
-    openZarr();
+    if (openZarr) {
+      openZarr();
+    }
   }
 
   @Override
@@ -456,10 +469,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseResolutionCount(String root, String key) throws IOException, FormatException {
-    String path = key.isEmpty() ? root : root + File.separator + key;
-    String canonicalPath = new Location(path).getCanonicalPath();
-    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
+  private void parseResolutionCount(String root, String key, Map<String, Object> attr) throws IOException, FormatException {
     ArrayList<Object> multiscales = (ArrayList<Object>) attr.get("multiscales");
     if (multiscales != null) {
       for (int x = 0; x < multiscales.size(); x++) {
@@ -646,10 +656,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseLabels(String root, String key) throws IOException, FormatException {
-    String path = key.isEmpty() ? root : root + File.separator + key;
-    String canonicalPath = new Location(path).getCanonicalPath();
-    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
+  private void parseLabels(String root, Map<String, Object> attr) throws IOException, FormatException {
     ArrayList<Object> labels = (ArrayList<Object>) attr.get("labels");
     if (labels != null) {
       for (int l = 0; l < labels.size(); l++) {
@@ -658,10 +665,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseImageLabels(String root, String key) throws IOException, FormatException {
-    String path = key.isEmpty() ? root : root + File.separator + key;
-    String canonicalPath = new Location(path).getCanonicalPath();
-    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
+  private void parseImageLabels(String root, Map<String, Object> attr) throws IOException, FormatException {
     Map<String, Object> imageLabel = (Map<String, Object>) attr.get("image-label");
     if (imageLabel != null) {
       String version = (String) imageLabel.get("version");
@@ -698,10 +702,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseOmeroMetadata(String root, String key) throws IOException, FormatException {
-    String path = key.isEmpty() ? root : root + File.separator + key;
-    String canonicalPath = new Location(path).getCanonicalPath();
-    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
+  private void parseOmeroMetadata(String root, Map<String, Object> attr) throws IOException, FormatException {
     Map<String, Object> omeroMetadata = (Map<String, Object>) attr.get("omero");
     if (omeroMetadata != null) {
       Integer id = (Integer) omeroMetadata.get("id");
@@ -881,6 +882,23 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     return hasSPW ? new String[] {FormatTools.HCS_DOMAIN} :
       FormatTools.NON_SPECIAL_DOMAINS;
+  }
+
+  /* @see loci.formats.FormatReader#initFile(String) */
+  @Override
+  protected ArrayList<String> getAvailableOptions() {
+    ArrayList<String> optionsList = super.getAvailableOptions();
+    optionsList.add(SAVE_ANNOTATIONS_KEY);
+    return optionsList;
+  }
+
+  public boolean saveAnnotations() {
+    MetadataOptions options = getMetadataOptions();
+    if (options instanceof DynamicMetadataOptions) {
+      return ((DynamicMetadataOptions) options).getBoolean(
+          SAVE_ANNOTATIONS_KEY, SAVE_ANNOTATIONS_DEFAULT);
+    }
+    return SAVE_ANNOTATIONS_DEFAULT;
   }
 
 }
