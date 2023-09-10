@@ -84,6 +84,8 @@ public class ZarrReader extends FormatReader {
 
   public static final String SAVE_ANNOTATIONS_KEY = "zarrreader.save_annotations";
   public static final boolean SAVE_ANNOTATIONS_DEFAULT = false;
+  public static final String LIST_PIXELS_KEY = "omezarr.list_pixels";
+  public static final boolean LIST_PIXELS_DEFAULT = false;
   protected transient ZarrService zarrService;
   private ArrayList<String> arrayPaths= new ArrayList<String>();
   private HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>();
@@ -871,9 +873,13 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
+    boolean skipPixels = noPixels || !listPixels();
     try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
-      paths.filter(Files::isRegularFile)
-              .forEach(path -> usedFiles.add(path.toFile().getAbsolutePath()));
+      paths.filter(Files::isRegularFile) 
+      .forEach(path -> {if (!skipPixels || 
+          (skipPixels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
+        usedFiles.add(path.toFile().getAbsolutePath());
+      });
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -896,6 +902,7 @@ public class ZarrReader extends FormatReader {
   protected ArrayList<String> getAvailableOptions() {
     ArrayList<String> optionsList = super.getAvailableOptions();
     optionsList.add(SAVE_ANNOTATIONS_KEY);
+    optionsList.add(LIST_PIXELS_KEY);
     return optionsList;
   }
 
@@ -906,6 +913,15 @@ public class ZarrReader extends FormatReader {
           SAVE_ANNOTATIONS_KEY, SAVE_ANNOTATIONS_DEFAULT);
     }
     return SAVE_ANNOTATIONS_DEFAULT;
+  }
+  
+  public boolean listPixels() {
+    MetadataOptions options = getMetadataOptions();
+    if (options instanceof DynamicMetadataOptions) {
+      return ((DynamicMetadataOptions) options).getBoolean(
+          LIST_PIXELS_KEY, LIST_PIXELS_DEFAULT);
+    }
+    return LIST_PIXELS_DEFAULT;
   }
 
 }
