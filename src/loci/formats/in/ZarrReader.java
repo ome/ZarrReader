@@ -64,6 +64,8 @@ import loci.formats.FormatException;
 import loci.formats.FormatReader;
 import loci.formats.FormatTools;
 import loci.formats.MetadataTools;
+import loci.formats.in.DynamicMetadataOptions;
+import loci.formats.in.MetadataOptions;
 import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.JZarrServiceImpl;
@@ -82,6 +84,8 @@ import loci.formats.services.ZarrService;
 
 public class ZarrReader extends FormatReader {
 
+  public static final String QUICK_READ_KEY = "zarrreader.quick_read";
+  public static final boolean QUICK_READ_DEFAULT = true;
   public static final String SAVE_ANNOTATIONS_KEY = "zarrreader.save_annotations";
   public static final boolean SAVE_ANNOTATIONS_DEFAULT = false;
   public static final String LIST_PIXELS_KEY = "omezarr.list_pixels";
@@ -235,6 +239,10 @@ public class ZarrReader extends FormatReader {
 
     core.clear();
     int resolutionTotal = 0;
+    
+    HashMap<Integer, int[]> resShapes = new HashMap<Integer, int[]>();
+    int pixelType = -1;
+
     for (int i=0; i<arrayPaths.size(); i++) {
       int resolutionCount = 1;
       if (resCounts.get(arrayPaths.get(i)) != null) {
@@ -248,22 +256,37 @@ public class ZarrReader extends FormatReader {
       CoreMetadata ms = new CoreMetadata();
       core.add(ms);
 
+      boolean openZarr = true;
+      if (quickRead() && resShapes.containsKey(resolutionIndex)) {
+        openZarr = false;
+      }
+        
       if (hasFlattenedResolutions()) {
-        setSeries(i, true);
+        setSeries(i, openZarr);
       }
       else {
-        setSeries(coreIndexToSeries(i), true);
+        setSeries(coreIndexToSeries(i), openZarr);
         setResolution(resolutionIndex);
         if (i == resolutionTotal + resolutionCount - 1) {
           resolutionTotal += resolutionCount;
         }
       }
-
-      ms.pixelType = zarrService.getPixelType();
-      int[] shape = zarrService.getShape();
-      if (shape.length < 5) {
-        shape = get5DShape(shape);
+      
+      int[] shape;
+      if (openZarr) {
+        pixelType = zarrService.getPixelType();
+        ms.pixelType = pixelType;
+        shape = zarrService.getShape();
+        if (shape.length < 5) {
+          shape = get5DShape(shape);
+          resShapes.put(resolutionIndex, shape);
+        } 
       }
+      else {
+        ms.pixelType = pixelType;
+        shape = resShapes.get(resolutionIndex);
+      }
+
 
       ms.sizeX = shape[4];
       ms.sizeY = shape[3];
@@ -922,6 +945,15 @@ public class ZarrReader extends FormatReader {
           LIST_PIXELS_KEY, LIST_PIXELS_DEFAULT);
     }
     return LIST_PIXELS_DEFAULT;
+  }
+  
+  public boolean quickRead() {
+    MetadataOptions options = getMetadataOptions();
+    if (options instanceof DynamicMetadataOptions) {
+      return ((DynamicMetadataOptions) options).getBoolean(
+          QUICK_READ_KEY, QUICK_READ_DEFAULT);
+    }
+    return QUICK_READ_DEFAULT;
   }
 
 }
