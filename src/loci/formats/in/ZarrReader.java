@@ -91,7 +91,8 @@ public class ZarrReader extends FormatReader {
   public static final String LIST_PIXELS_KEY = "omezarr.list_pixels";
   public static final boolean LIST_PIXELS_DEFAULT = false;
   protected transient ZarrService zarrService;
-  private ArrayList<String> arrayPaths= new ArrayList<String>();
+  private ArrayList<String> arrayPaths = new ArrayList<String>();
+  private ArrayList<String> groupKeys = new ArrayList<String>();
   private HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>();
   private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
   private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
@@ -130,6 +131,7 @@ public class ZarrReader extends FormatReader {
   @Override
   public void close() throws IOException {
     arrayPaths.clear();
+    groupKeys.clear();
     resSeries.clear();
     resCounts.clear();
     resIndexes.clear();
@@ -190,8 +192,13 @@ public class ZarrReader extends FormatReader {
       }
     }
 
+    quickParsePlate(attr, zarrRootPath, "", store);
+
     // Parse group attributes
-    for (String key: zarrService.getGroupKeys(canonicalPath)) {
+    if (groupKeys.isEmpty()) {
+      groupKeys.addAll(zarrService.getGroupKeys(canonicalPath));
+    }
+    for (String key: groupKeys) {
       Map<String, Object> attributes = zarrService.getGroupAttr(canonicalPath+File.separator+key);
       if (attributes != null && !attributes.isEmpty()) {
         parseResolutionCount(zarrRootPath, key, attributes);
@@ -214,8 +221,27 @@ public class ZarrReader extends FormatReader {
     }
 
     // Parse array attributes
-    arrayPaths = new ArrayList<String>();
-    arrayPaths.addAll(zarrService.getArrayKeys(canonicalPath));
+    Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
+    if (plates != null) {
+      ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
+      ArrayList<Object> rows = (ArrayList<Object>)plates.get("rows");
+      Integer fieldCount = (Integer) plates.get("field_count");
+      for (Object row: rows) {
+        String rowName = ((Map<String, String>) row).get("name");
+        for (Object column: columns) {
+          String columnName = ((Map<String, String>) column).get("name");
+          for (int i = 0; i < fieldCount; i++) {
+            for (int j = 0; j < 4; j++) {
+              arrayPaths.add(rowName + File.separator + columnName + File.separator + i + File.separator + j);
+            }
+          }
+        }
+      }
+    }
+  
+    if (arrayPaths.isEmpty()) {
+      arrayPaths.addAll(zarrService.getArrayKeys(canonicalPath));
+    }
     orderArrayPaths(zarrRootPath);
 
     if (saveAnnotations()) {
@@ -287,7 +313,6 @@ public class ZarrReader extends FormatReader {
         shape = resShapes.get(resolutionIndex);
       }
 
-
       ms.sizeX = shape[4];
       ms.sizeY = shape[3];
       ms.sizeT = shape[0];
@@ -319,8 +344,7 @@ public class ZarrReader extends FormatReader {
       store.setImageName(arrayPaths.get(seriesToCoreIndex(i)), i);
       store.setImageID(MetadataTools.createLSID("Image", i), i);
     }
-    parsePlate(zarrRootPath, "", store);
-
+    parsePlate(attr, zarrRootPath, "", store);
     setSeries(0);
   }
 
@@ -566,10 +590,28 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parsePlate(String root, String key, MetadataStore store) throws IOException, FormatException {
-    String path = key.isEmpty() ? root : root + File.separator + key;
-    String canonicalPath = new Location(path).getCanonicalPath();
-    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
+  private void quickParsePlate(Map<String, Object> attr, String root, String key, MetadataStore store) throws IOException, FormatException {
+    Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
+    if (plates != null) {
+      ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
+      ArrayList<Object> rows = (ArrayList<Object>)plates.get("rows");
+      Integer fieldCount = (Integer) plates.get("field_count");
+
+      for (Object row: rows) {
+        String rowName = ((Map<String, String>) row).get("name");
+        groupKeys.add(rowName);
+        for (Object column: columns) {
+          String columnName = ((Map<String, String>) column).get("name");
+          groupKeys.add(rowName + File.separator + columnName);
+          for (int i = 0; i < fieldCount; i++) {
+            groupKeys.add(rowName + File.separator + columnName + File.separator + i);
+          }
+        }
+      }
+    }
+  }
+
+  private void parsePlate(Map<String, Object> attr, String root, String key, MetadataStore store) throws IOException, FormatException {
     Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
     if (plates != null) {
       ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
@@ -577,7 +619,7 @@ public class ZarrReader extends FormatReader {
       ArrayList<Object> wells = (ArrayList<Object>)plates.get("wells");
       ArrayList<Object>  acquisitions = (ArrayList<Object> )plates.get("acquisitions");
       String plateName = (String) plates.get("name");
-      String fieldCount = (String) plates.get("filed_count");
+      Integer fieldCount = (Integer) plates.get("field_count");
 
       String plate_id =  MetadataTools.createLSID("Plate", 0);
       store.setPlateID(plate_id, 0);
