@@ -38,6 +38,7 @@ import java.nio.file.Paths;
 import java.nio.file.FileVisitOption;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
@@ -95,6 +96,7 @@ public class ZarrReader extends FormatReader {
   private ArrayList<String> groupKeys = new ArrayList<String>();
   private HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>();
   private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
+  private HashSet<Integer> uniqueResCounts = new HashSet<Integer>();
   private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
   private String dimensionOrder = "XYZCT";
   private int wellCount = 0;
@@ -192,7 +194,7 @@ public class ZarrReader extends FormatReader {
       }
     }
 
-    quickParsePlate(attr, zarrRootPath, "", store);
+    generateGroupKeys(attr);
 
     // Parse group attributes
     if (groupKeys.isEmpty()) {
@@ -221,24 +223,7 @@ public class ZarrReader extends FormatReader {
     }
 
     // Parse array attributes
-    Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
-    if (plates != null) {
-      ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
-      ArrayList<Object> rows = (ArrayList<Object>)plates.get("rows");
-      Integer fieldCount = (Integer) plates.get("field_count");
-      for (Object row: rows) {
-        String rowName = ((Map<String, String>) row).get("name");
-        for (Object column: columns) {
-          String columnName = ((Map<String, String>) column).get("name");
-          for (int i = 0; i < fieldCount; i++) {
-            for (int j = 0; j < 4; j++) {
-              arrayPaths.add(rowName + File.separator + columnName + File.separator + i + File.separator + j);
-            }
-          }
-        }
-      }
-    }
-  
+    generateArrayKeys(attr);
     if (arrayPaths.isEmpty()) {
       arrayPaths.addAll(zarrService.getArrayKeys(canonicalPath));
     }
@@ -567,6 +552,7 @@ public class ZarrReader extends FormatReader {
           int numRes = multiscalePaths.size();
           if (i == 0) {
             resCounts.put(key.isEmpty() ? scalePath : key + File.separator + scalePath, numRes);
+            uniqueResCounts.add(numRes);
           }
           resIndexes.put(key.isEmpty() ? scalePath : key + File.separator + scalePath, i);
           ArrayList<String> list = resSeries.get(resCounts.size() - 1);
@@ -590,7 +576,31 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void quickParsePlate(Map<String, Object> attr, String root, String key, MetadataStore store) throws IOException, FormatException {
+  private void generateArrayKeys(Map<String, Object> attr) {
+    if (uniqueResCounts.size() != 1) {
+      LOGGER.info("Cannout automatically generate ArrayKeys as resolution counts differ");
+    }
+    Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
+    if (plates != null) {
+      ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
+      ArrayList<Object> rows = (ArrayList<Object>)plates.get("rows");
+      Integer fieldCount = (Integer) plates.get("field_count");
+      for (Object row: rows) {
+        String rowName = ((Map<String, String>) row).get("name");
+        for (Object column: columns) {
+          String columnName = ((Map<String, String>) column).get("name");
+          for (int i = 0; i < fieldCount; i++) {
+            int resolutionCount = ((Integer[])uniqueResCounts.toArray())[0];
+            for (int j = 0; j < resolutionCount; j++) {
+              arrayPaths.add(rowName + File.separator + columnName + File.separator + i + File.separator + j);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private void generateGroupKeys(Map<String, Object> attr) {
     Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
     if (plates != null) {
       ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
