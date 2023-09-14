@@ -277,7 +277,7 @@ public class ZarrReader extends FormatReader {
       }
       else {
         setSeries(coreIndexToSeries(i), openZarr);
-        setResolution(resolutionIndex);
+        setResolution(resolutionIndex, openZarr);
         if (i == resolutionTotal + resolutionCount - 1) {
           resolutionTotal += resolutionCount;
         }
@@ -590,7 +590,7 @@ public class ZarrReader extends FormatReader {
         for (Object column: columns) {
           String columnName = ((Map<String, String>) column).get("name");
           for (int i = 0; i < fieldCount; i++) {
-            int resolutionCount = ((Integer[])uniqueResCounts.toArray())[0];
+            int resolutionCount = (Integer)(uniqueResCounts.toArray())[0];
             for (int j = 0; j < resolutionCount; j++) {
               arrayPaths.add(rowName + File.separator + columnName + File.separator + i + File.separator + j);
             }
