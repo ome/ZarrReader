@@ -104,6 +104,7 @@ public class ZarrReader extends FormatReader {
   private HashMap<String, ArrayList<String>> pathArrayDimensions = new HashMap<String, ArrayList<String>>();
   private boolean planesPrePopulated = false;
   private boolean hasSPW = false;
+  private transient int currentOpenZarr = -1;
 
   public ZarrReader() {
     super("Zarr", "zarr");
@@ -489,9 +490,13 @@ public class ZarrReader extends FormatReader {
           if (!hasFlattenedResolutions()) {
             seriesIndex += resolution;
           }
-          newZarrPath += File.separator + arrayPaths.get(seriesIndex);
-          String canonicalPath = new Location(newZarrPath).getCanonicalPath();
-          zarrService.open(canonicalPath);
+          if (seriesIndex != currentOpenZarr) {
+            newZarrPath += File.separator + arrayPaths.get(seriesIndex);
+            String canonicalPath = new Location(newZarrPath).getCanonicalPath();
+            LOGGER.info("Opening zarr for series {} at path: {}", seriesIndex, canonicalPath);
+            zarrService.open(canonicalPath);
+            currentOpenZarr = seriesIndex;
+          }
         }
       }
     } catch (IOException | FormatException e) {
