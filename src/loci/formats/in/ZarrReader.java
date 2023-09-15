@@ -291,8 +291,8 @@ public class ZarrReader extends FormatReader {
         shape = zarrService.getShape();
         if (shape.length < 5) {
           shape = get5DShape(shape);
-          resShapes.put(resolutionIndex, shape);
         } 
+        resShapes.put(resolutionIndex, shape);
       }
       else {
         ms.pixelType = pixelType;
