@@ -143,6 +143,11 @@ public class ZarrReader extends FormatReader {
     if (zarrService != null) {
       zarrService.close();
     }
+    planesPrePopulated = false;
+    hasSPW = false;
+    currentOpenZarr = -1;
+    wellCount = 0;
+    wellSamplesCount = 0;
     super.close();
   }
 
