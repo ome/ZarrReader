@@ -117,7 +117,7 @@ public class ZarrReader extends FormatReader {
   public int getRequiredDirectories(String[] files)
     throws FormatException, IOException
   {
-    return 1;
+    return FormatTools.getRequiredDirectories(files);
   }
 
   /* @see loci.formats.IFormatReader#isThisType(String, boolean) */
