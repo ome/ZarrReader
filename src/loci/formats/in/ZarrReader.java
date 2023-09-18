@@ -37,11 +37,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.FileVisitOption;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -183,9 +186,10 @@ public class ZarrReader extends FormatReader {
     LOGGER.info("ZarrReader initializing ZarrService: {}", canonicalPath);
     initializeZarrService(canonicalPath);
 
+    ArrayList<String> omeSeriesOrder = new ArrayList<String>();
     if(omeMetaFile.exists()) {
       LOGGER.info("ZarrReader parsing existing OME-XML");
-      parseOMEXML(omeMetaFile, store);
+      parseOMEXML(omeMetaFile, store, omeSeriesOrder);
     }
     // Parse base level attributes
     Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
@@ -214,7 +218,8 @@ public class ZarrReader extends FormatReader {
       groupKeys.addAll(zarrService.getGroupKeys(canonicalPath));
     }
     LOGGER.info("ZarrReader parsing group Keys");
-    for (String key: groupKeys) {
+    List<String> orderedGroupKeys = reorderGroupKeys(groupKeys, omeSeriesOrder);
+    for (String key: orderedGroupKeys) {
       Map<String, Object> attributes = zarrService.getGroupAttr(canonicalPath+File.separator+key);
       if (attributes != null && !attributes.isEmpty()) {
         parseResolutionCount(zarrRootPath, key, attributes);
@@ -352,6 +357,68 @@ public class ZarrReader extends FormatReader {
     parsePlate(attr, zarrRootPath, "", store);
     setSeries(0);
     LOGGER.info("ZarrReader initialization complete");
+  }
+  
+  private List<String> reorderGroupKeys(ArrayList<String> groupKeys, List<String> originalKeys) {
+    // Reorder group keys to maintain the original order from the OME-XML provided by bioformats2raw
+    if (originalKeys.isEmpty() || !groupKeys.containsAll(originalKeys)) {
+      LOGGER.warn("Mismatch with group key paths and original OME-XML metadata, original ordering wont be maintained");
+      return reorderGroupKeys(groupKeys);
+    }
+    List<String> groupKeysList = new ArrayList<String>();
+    groupKeys.removeAll(originalKeys);
+    groupKeysList.addAll(originalKeys);
+    groupKeysList.addAll(groupKeys);
+    return groupKeysList;
+  }
+
+  private List<String> reorderGroupKeys(ArrayList<String> groupKeys) {
+    // Reorder group keys to avoid order such A/1, A/10, A/11, A/12, A/2, A/20, A/3, A/4 
+    List<String> groupKeysList = new ArrayList<String>();
+    groupKeysList.addAll(groupKeys);
+    Collections.sort(groupKeysList, keyComparator);
+    return groupKeysList;
+  }
+
+  private static Comparator<String> keyComparator = (a,b)->{
+    String[] aParts = a.split("/");
+    String[] bParts = b.split("/");
+
+    int numParts = aParts.length - bParts.length;
+    if (numParts != 0) return numParts;
+
+    for (int i = 0; i < aParts.length; i++) {
+      String aPart = aParts[i];
+      String bPart = bParts[i];
+
+      boolean isAInt = isInteger(aPart);
+      boolean isBInt = isInteger(bPart);
+      if (isAInt && !isBInt) return -1;
+      if (!isAInt && isBInt) return 1;
+
+      if (isAInt) {
+        int numResult = Integer.compare(Integer.valueOf(aPart), Integer.valueOf(bPart));
+        if (numResult != 0) return numResult;
+      }
+      else {
+        int stringResult = aPart.compareTo(bPart);
+        if (stringResult != 0) return stringResult;
+      }
+    }
+
+    return 0;
+  };
+
+  private static boolean isInteger(String s) {
+    if(s.isEmpty()) return false;
+    for(int i = 0; i < s.length(); i++) {
+      if(i == 0 && s.charAt(i) == '-') {
+        if(s.length() == 1) return false;
+        else continue;
+      }
+      if(Character.digit(s.charAt(i), 10) < 0) return false;
+    }
+    return true;
   }
 
   /**
@@ -843,7 +910,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseOMEXML(Location omeMetaFile, MetadataStore store) throws IOException, FormatException {
+  private void parseOMEXML(Location omeMetaFile, MetadataStore store, ArrayList<String> origSeries) throws IOException, FormatException {
     Document omeDocument = null;
     try (RandomAccessInputStream measurement =
         new RandomAccessInputStream(omeMetaFile.getAbsolutePath())) {
@@ -885,6 +952,24 @@ public class ZarrReader extends FormatReader {
 
     int numDatasets = omexmlMeta.getImageCount();
 
+    // Map of the well location for each imageReference
+    // Later we will map the series index to the imageReference
+    // This allows us to maintain the series order when parsing the Zarr groups
+    Map<String, String> imageRefPaths = new HashMap<String, String>();
+    for (int plateIndex = 0; plateIndex < omexmlMeta.getPlateCount(); plateIndex++) { 
+      for (int wellIndex = 0; wellIndex < omexmlMeta.getWellCount(plateIndex); wellIndex++) { 
+        NonNegativeInteger col = omexmlMeta.getWellColumn(plateIndex, wellIndex);
+        NonNegativeInteger row = omexmlMeta.getWellRow(plateIndex, wellIndex);
+
+        String rowLetter = getRowString(row.getValue());
+        String expectedPath = rowLetter + File.separator + (col.getValue() + 1) + File.separator  + "0";
+        for (int wellSampleIndex = 0; wellSampleIndex < omexmlMeta.getWellSampleCount(plateIndex, wellIndex); wellSampleIndex++) { 
+          String imageRef = omexmlMeta.getWellSampleImageRef(plateIndex, wellIndex, wellSampleIndex);
+          imageRefPaths.put(imageRef, expectedPath);
+        }
+      }
+    }
+
     int oldSeries = getSeries();
     core.clear();
     for (int i=0; i<numDatasets; i++) {
@@ -901,7 +986,13 @@ public class ZarrReader extends FormatReader {
         throw new FormatException("Image dimensions not found");
       }
 
-      Boolean endian = zarrService.isLittleEndian();;
+      String imageId = omexmlMeta.getImageID(i);
+      if (!imageRefPaths.isEmpty() && imageRefPaths.containsKey(imageId)) {
+        String expectedZarrPath = imageRefPaths.get(imageId);
+        origSeries.add(expectedZarrPath);
+      }
+
+      Boolean endian = zarrService.isLittleEndian();
       String pixType = omexmlMeta.getPixelsType(i).toString();
       ms.dimensionOrder = omexmlMeta.getPixelsDimensionOrder(i).toString();
       ms.sizeX = w.intValue();
@@ -957,6 +1048,16 @@ public class ZarrReader extends FormatReader {
     omexmlMeta.setRoot((MetadataRoot) root);
  
     MetadataConverter.convertMetadata( omexmlMeta, store );
+  }
+  
+  public static String getRowString(int rowIndex) {
+    StringBuilder sb = new StringBuilder();
+    if (rowIndex == 0) sb.append('A');
+    while (rowIndex > 0) {
+        sb.append((char)('A' + (rowIndex % 26)));
+        rowIndex /= 26;
+    }
+    return sb.reverse().toString();
   }
 
   private Double getDouble(Map<String, Object> src, String key) {
