@@ -137,7 +137,9 @@ public class ZarrReader extends FormatReader {
     groupKeys.clear();
     resSeries.clear();
     resCounts.clear();
+    uniqueResCounts.clear();
     resIndexes.clear();
+    pathArrayDimensions.clear();
     if (zarrService != null) {
       zarrService.close();
     }
