@@ -1105,6 +1105,7 @@ public class ZarrReader extends FormatReader {
       .forEach(path -> {if (!skipPixels || 
           (skipPixels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
         usedFiles.add(path.toFile().getAbsolutePath());
+        LOGGER.error("Adding to the used files list: {}", path.toFile().getAbsolutePath());
       });
     } catch (IOException e) {
       e.printStackTrace();
