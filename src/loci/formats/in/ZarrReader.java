@@ -1075,6 +1075,8 @@ public class ZarrReader extends FormatReader {
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
     boolean skipPixels = noPixels || !listPixels();
+    LOGGER.error("ZarrReader getUsed files, skipPixels: {}", skipPixels);
+    LOGGER.error("ZarrReader fetching list of used files: {}", zarrRootPath);
     try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
       paths.filter(Files::isRegularFile) 
       .forEach(path -> {if (!skipPixels || 
@@ -1084,7 +1086,7 @@ public class ZarrReader extends FormatReader {
     } catch (IOException e) {
       e.printStackTrace();
     }
-
+    LOGGER.error("ZarrReader returning list of used files of size: {}", usedFiles.size());
     String[] fileArr = new String[usedFiles.size()];
     fileArr = usedFiles.toArray(fileArr);
     return fileArr;
