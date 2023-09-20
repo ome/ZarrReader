@@ -210,11 +210,11 @@ public class ZarrReader extends FormatReader {
       }
     }
     LOGGER.error("ZarrReader generating group keys");
-    generateGroupKeys(attr);
+    generateGroupKeys(attr, canonicalPath);
 
     // Parse group attributes
     if (groupKeys.isEmpty()) {
-      LOGGER.error("ZarrReader adding hroup keys from ZarrService");
+      LOGGER.error("ZarrReader adding group keys from ZarrService");
       groupKeys.addAll(zarrService.getGroupKeys(canonicalPath));
     }
     LOGGER.error("ZarrReader parsing group Keys");
@@ -243,7 +243,7 @@ public class ZarrReader extends FormatReader {
 
     // Parse array attributes
     LOGGER.error("ZarrReader attempting to generate Array Keys");
-    generateArrayKeys(attr);
+    generateArrayKeys(attr, canonicalPath);
     if (arrayPaths.isEmpty()) {
       LOGGER.error("ZarrReader adding Array Keys from ZarrService");
       arrayPaths.addAll(zarrService.getArrayKeys(canonicalPath));
@@ -668,7 +668,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void generateArrayKeys(Map<String, Object> attr) {
+  private void generateArrayKeys(Map<String, Object> attr, String canonicalPath) {
     if (uniqueResCounts.size() != 1) {
       LOGGER.error("Cannout automatically generate ArrayKeys as resolution counts differ");
     }
@@ -684,7 +684,13 @@ public class ZarrReader extends FormatReader {
           for (int i = 0; i < fieldCount; i++) {
             int resolutionCount = (Integer)(uniqueResCounts.toArray())[0];
             for (int j = 0; j < resolutionCount; j++) {
-              arrayPaths.add(rowName + File.separator + columnName + File.separator + i + File.separator + j);
+              String key = rowName + File.separator + columnName + File.separator + i + File.separator + j;
+              if (Files.isDirectory(Paths.get(canonicalPath+File.separator+key))) {
+                arrayPaths.add(rowName + File.separator + columnName + File.separator + i + File.separator + j);
+              }
+              else {
+                LOGGER.error("Skipping array path as sparse data: {}", key);
+              }
             }
           }
         }
@@ -692,7 +698,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void generateGroupKeys(Map<String, Object> attr) {
+  private void generateGroupKeys(Map<String, Object> attr, String canonicalPath) {
     Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
     if (plates != null) {
       ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
@@ -701,12 +707,29 @@ public class ZarrReader extends FormatReader {
 
       for (Object row: rows) {
         String rowName = ((Map<String, String>) row).get("name");
-        groupKeys.add(rowName);
+        if (Files.isDirectory(Paths.get(canonicalPath+File.separator+rowName))) {
+          groupKeys.add(rowName);
+        }
+        else {
+          LOGGER.error("Skipping group key as sparse data: {}", rowName);
+        }
         for (Object column: columns) {
           String columnName = ((Map<String, String>) column).get("name");
-          groupKeys.add(rowName + File.separator + columnName);
+          String columnKey = rowName + File.separator + columnName;
+          if (Files.isDirectory(Paths.get(canonicalPath+File.separator+columnKey))) {
+            groupKeys.add(columnKey);
+          }
+          else {
+            LOGGER.error("Skipping group key as sparse data: {}", columnKey);
+          }
           for (int i = 0; i < fieldCount; i++) {
-            groupKeys.add(rowName + File.separator + columnName + File.separator + i);
+            String key = rowName + File.separator + columnName + File.separator + i;
+            if (Files.isDirectory(Paths.get(canonicalPath+File.separator+key))) {
+              groupKeys.add(key);
+            }
+            else {
+              LOGGER.error("Skipping group key as sparse data: {}", key);
+            }
           }
         }
       }
