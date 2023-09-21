@@ -1097,16 +1097,11 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
-    boolean skipPixels = noPixels || !listPixels();
-    LOGGER.error("ZarrReader getUsed files, skipPixels: {}", skipPixels);
     LOGGER.error("ZarrReader fetching list of used files: {}", zarrRootPath);
     try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
-      paths.filter(Files::isRegularFile) 
-      .forEach(path -> {if (!skipPixels || 
-          (skipPixels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
-        usedFiles.add(path.toFile().getAbsolutePath());
-        LOGGER.error("Adding to the used files list: {}", path.toFile().getAbsolutePath());
-      });
+      paths.filter(Files::isRegularFile)
+      .forEach(path -> usedFiles.add(path.toFile().getAbsolutePath()));
+
     } catch (IOException e) {
       e.printStackTrace();
     }
