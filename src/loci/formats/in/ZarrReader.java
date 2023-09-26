@@ -171,7 +171,7 @@ public class ZarrReader extends FormatReader {
   @Override
   protected void initFile(String id) throws FormatException, IOException {
     super.initFile(id);
-    LOGGER.error("ZarrReader attempting to initialize file: {}", id);
+    LOGGER.debug("ZarrReader attempting to initialize file: {}", id);
     final MetadataStore store = makeFilterMetadata();
     Location zarrFolder = new Location(id);
     String zarrPath = zarrFolder.getAbsolutePath();
@@ -180,18 +180,16 @@ public class ZarrReader extends FormatReader {
     Location omeMetaFile = new Location( zarrRootPath + File.separator + "OME", "METADATA.ome.xml" );
     String canonicalPath = new Location(zarrRootPath).getCanonicalPath();
 
-    LOGGER.error("ZarrReader initializing ZarrService: {}", canonicalPath);
     initializeZarrService(canonicalPath);
 
     ArrayList<String> omeSeriesOrder = new ArrayList<String>();
     if(omeMetaFile.exists()) {
-      LOGGER.error("ZarrReader parsing existing OME-XML");
+      LOGGER.debug("ZarrReader parsing existing OME-XML");
       parseOMEXML(omeMetaFile, store, omeSeriesOrder);
     }
     // Parse base level attributes
     Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
     int attrIndex = 0;
-    LOGGER.error("ZarrReader parsing top level group attributes: {}", canonicalPath);
     if (attr != null && !attr.isEmpty()) {
       parseResolutionCount(zarrRootPath, "", attr);
       parseOmeroMetadata(zarrRootPath, attr);
@@ -206,15 +204,14 @@ public class ZarrReader extends FormatReader {
         e.printStackTrace();
       }
     }
-    LOGGER.error("ZarrReader generating group keys");
     generateGroupKeys(attr, canonicalPath);
 
     // Parse group attributes
     if (groupKeys.isEmpty()) {
-      LOGGER.error("ZarrReader adding group keys from ZarrService");
+      LOGGER.debug("ZarrReader adding group keys from ZarrService");
       groupKeys.addAll(zarrService.getGroupKeys(canonicalPath));
     }
-    LOGGER.error("ZarrReader parsing group Keys");
+
     List<String> orderedGroupKeys = reorderGroupKeys(groupKeys, omeSeriesOrder);
     for (String key: orderedGroupKeys) {
       Map<String, Object> attributes = zarrService.getGroupAttr(canonicalPath+File.separator+key);
@@ -239,13 +236,11 @@ public class ZarrReader extends FormatReader {
     }
 
     // Parse array attributes
-    LOGGER.error("ZarrReader attempting to generate Array Keys");
     generateArrayKeys(attr, canonicalPath);
     if (arrayPaths.isEmpty()) {
-      LOGGER.error("ZarrReader adding Array Keys from ZarrService");
+      LOGGER.debug("ZarrReader adding Array Keys from ZarrService");
       arrayPaths.addAll(zarrService.getArrayKeys(canonicalPath));
     }
-    LOGGER.error("ZarrReader ordering Array Paths");
     orderArrayPaths(zarrRootPath);
 
     if (saveAnnotations()) {
@@ -274,7 +269,6 @@ public class ZarrReader extends FormatReader {
     int pixelType = -1;
 
     for (int i=0; i<arrayPaths.size(); i++) {
-      LOGGER.error("ZarrReader setting metadata for series : {}", arrayPaths.get(i));
       int resolutionCount = 1;
       if (resCounts.get(arrayPaths.get(i)) != null) {
         resolutionCount = resCounts.get(arrayPaths.get(i));
@@ -305,7 +299,7 @@ public class ZarrReader extends FormatReader {
       
       int[] shape;
       if (openZarr) {
-        LOGGER.error("ZarrReader opening Zarr to get Shape");
+        LOGGER.debug("ZarrReader opening Zarr to get Shape");
         pixelType = zarrService.getPixelType();
         ms.pixelType = pixelType;
         shape = zarrService.getShape();
@@ -344,16 +338,14 @@ public class ZarrReader extends FormatReader {
       ms.interleaved = false;
       ms.resolutionCount = resolutionCount;
     }
-    LOGGER.error("ZarrReader populating Pixels metadata");
     MetadataTools.populatePixels( store, this, !planesPrePopulated );
     for (int i = 0; i < getSeriesCount(); i++) {
       store.setImageName(arrayPaths.get(seriesToCoreIndex(i)), i);
       store.setImageID(MetadataTools.createLSID("Image", i), i);
     }
-    LOGGER.error("ZarrReader parsing plate");
     parsePlate(attr, zarrRootPath, "", store);
     setSeries(0);
-    LOGGER.error("ZarrReader initialization complete");
+    LOGGER.debug("ZarrReader initialization complete");
   }
   
   private List<String> reorderGroupKeys(ArrayList<String> groupKeys, List<String> originalKeys) {
@@ -577,7 +569,7 @@ public class ZarrReader extends FormatReader {
           if (seriesIndex != currentOpenZarr) {
             newZarrPath += File.separator + arrayPaths.get(seriesIndex);
             String canonicalPath = new Location(newZarrPath).getCanonicalPath();
-            LOGGER.error("Opening zarr for series {} at path: {}", seriesIndex, canonicalPath);
+            LOGGER.debug("Opening zarr for series {} at path: {}", seriesIndex, canonicalPath);
             zarrService.open(canonicalPath);
             currentOpenZarr = seriesIndex;
           }
@@ -667,7 +659,7 @@ public class ZarrReader extends FormatReader {
 
   private void generateArrayKeys(Map<String, Object> attr, String canonicalPath) {
     if (uniqueResCounts.size() != 1) {
-      LOGGER.error("Cannout automatically generate ArrayKeys as resolution counts differ");
+      LOGGER.debug("Cannout automatically generate ArrayKeys as resolution counts differ");
     }
     Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
     if (plates != null) {
@@ -686,7 +678,7 @@ public class ZarrReader extends FormatReader {
                 arrayPaths.add(rowName + File.separator + columnName + File.separator + i + File.separator + j);
               }
               else {
-                LOGGER.error("Skipping array path as sparse data: {}", key);
+                LOGGER.debug("Skipping array path as sparse data: {}", key);
               }
             }
           }
@@ -708,7 +700,7 @@ public class ZarrReader extends FormatReader {
           groupKeys.add(rowName);
         }
         else {
-          LOGGER.error("Skipping group key as sparse data: {}", rowName);
+          LOGGER.debug("Skipping group key as sparse data: {}", rowName);
         }
         for (Object column: columns) {
           String columnName = ((Map<String, String>) column).get("name");
@@ -717,7 +709,7 @@ public class ZarrReader extends FormatReader {
             groupKeys.add(columnKey);
           }
           else {
-            LOGGER.error("Skipping group key as sparse data: {}", columnKey);
+            LOGGER.debug("Skipping group key as sparse data: {}", columnKey);
           }
           for (int i = 0; i < fieldCount; i++) {
             String key = rowName + File.separator + columnName + File.separator + i;
@@ -725,7 +717,7 @@ public class ZarrReader extends FormatReader {
               groupKeys.add(key);
             }
             else {
-              LOGGER.error("Skipping group key as sparse data: {}", key);
+              LOGGER.debug("Skipping group key as sparse data: {}", key);
             }
           }
         }
@@ -1094,7 +1086,6 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
-    LOGGER.error("ZarrReader fetching list of used files: {}", zarrRootPath);
     try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
       paths.filter(Files::isRegularFile)
       .forEach(path -> usedFiles.add(path.toFile().getAbsolutePath()));
@@ -1102,7 +1093,6 @@ public class ZarrReader extends FormatReader {
     } catch (IOException e) {
       e.printStackTrace();
     }
-    LOGGER.error("ZarrReader returning list of used files of size: {}", usedFiles.size());
     String[] fileArr = new String[usedFiles.size()];
     fileArr = usedFiles.toArray(fileArr);
     return fileArr;
