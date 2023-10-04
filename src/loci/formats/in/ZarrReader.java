@@ -44,6 +44,7 @@ import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -91,6 +92,8 @@ public class ZarrReader extends FormatReader {
   public static final boolean QUICK_READ_DEFAULT = true;
   public static final String SAVE_ANNOTATIONS_KEY = "zarrreader.save_annotations";
   public static final boolean SAVE_ANNOTATIONS_DEFAULT = false;
+  public static final String LIST_PIXELS_KEY = "omezarr.list_pixels";
+  public static final boolean LIST_PIXELS_DEFAULT = false;
   protected transient ZarrService zarrService;
   private ArrayList<String> arrayPaths = new ArrayList<String>();
   private ArrayList<String> groupKeys = new ArrayList<String>();
@@ -1111,7 +1114,7 @@ public class ZarrReader extends FormatReader {
   protected ArrayList<String> getAvailableOptions() {
     ArrayList<String> optionsList = super.getAvailableOptions();
     optionsList.add(SAVE_ANNOTATIONS_KEY);
-    optionsList.add(QUICK_READ_KEY);
+    optionsList.add(LIST_PIXELS_KEY);
     return optionsList;
   }
 
@@ -1122,6 +1125,15 @@ public class ZarrReader extends FormatReader {
           SAVE_ANNOTATIONS_KEY, SAVE_ANNOTATIONS_DEFAULT);
     }
     return SAVE_ANNOTATIONS_DEFAULT;
+  }
+  
+  public boolean listPixels() {
+    MetadataOptions options = getMetadataOptions();
+    if (options instanceof DynamicMetadataOptions) {
+      return ((DynamicMetadataOptions) options).getBoolean(
+          LIST_PIXELS_KEY, LIST_PIXELS_DEFAULT);
+    }
+    return LIST_PIXELS_DEFAULT;
   }
   
   public boolean quickRead() {
