@@ -285,7 +285,7 @@ public class ZarrReader extends FormatReader {
       core.add(ms);
 
       boolean openZarr = true;
-      if (quickRead() && resShapes.containsKey(resolutionIndex)) {
+      if (quickRead() && resShapes.containsKey(resolutionIndex) && !arrayPaths.get(i).toLowerCase().contains("label")) {
         openZarr = false;
       }
         
