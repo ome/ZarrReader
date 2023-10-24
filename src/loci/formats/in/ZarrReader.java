@@ -94,6 +94,8 @@ public class ZarrReader extends FormatReader {
   public static final boolean SAVE_ANNOTATIONS_DEFAULT = false;
   public static final String LIST_PIXELS_KEY = "omezarr.list_pixels";
   public static final boolean LIST_PIXELS_DEFAULT = false;
+  public static final String INCLUDE_LABELS_KEY = "omezarr.include_labels";
+  public static final boolean INCLUDE_LABELS_DEFAULT = false;
   protected transient ZarrService zarrService;
   private ArrayList<String> arrayPaths = new ArrayList<String>();
   private ArrayList<String> groupKeys = new ArrayList<String>();
@@ -589,7 +591,9 @@ public class ZarrReader extends FormatReader {
         arrayPaths.remove(arrayPath);
       }
       for (String arrayPath: resSeries.get(i)) {
-        arrayPaths.add(arrayPath);
+        if (includeLabels() || !arrayPath.toLowerCase().contains("labels")) {
+          arrayPaths.add(arrayPath);
+        }
       }
     }
   }
@@ -1090,13 +1094,17 @@ public class ZarrReader extends FormatReader {
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
 
+    
     boolean skipPixels = noPixels || !listPixels();
+    boolean includeLabels = includeLabels();
     LOGGER.error("ZarrReader getUsed files, skipPixels: {}", skipPixels);
     LOGGER.error("ZarrReader fetching list of used files: {}", zarrRootPath);
     try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
       paths.filter(Files::isRegularFile) 
-      .forEach(path -> {if (!skipPixels || 
-          (skipPixels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
+      .forEach(path -> {if ((!skipPixels && includeLabels) || 
+          (!skipPixels && !includeLabels && !path.toString().toLowerCase().contains("labels")) ||
+          (skipPixels && includeLabels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))) ||
+          (skipPixels && !includeLabels &&  !path.toString().toLowerCase().contains("labels") &&(path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
         usedFiles.add(path.toFile().getAbsolutePath());
         LOGGER.error("Adding to the used files list: {}", path.toFile().getAbsolutePath());
       });
@@ -1122,6 +1130,8 @@ public class ZarrReader extends FormatReader {
     ArrayList<String> optionsList = super.getAvailableOptions();
     optionsList.add(SAVE_ANNOTATIONS_KEY);
     optionsList.add(LIST_PIXELS_KEY);
+    optionsList.add(QUICK_READ_KEY);
+    optionsList.add(INCLUDE_LABELS_KEY);
     return optionsList;
   }
 
@@ -1150,6 +1160,15 @@ public class ZarrReader extends FormatReader {
           QUICK_READ_KEY, QUICK_READ_DEFAULT);
     }
     return QUICK_READ_DEFAULT;
+  }
+  
+  public boolean includeLabels() {
+    MetadataOptions options = getMetadataOptions();
+    if (options instanceof DynamicMetadataOptions) {
+      return ((DynamicMetadataOptions) options).getBoolean(
+          INCLUDE_LABELS_KEY, INCLUDE_LABELS_DEFAULT);
+    }
+    return INCLUDE_LABELS_DEFAULT;
   }
 
 }
