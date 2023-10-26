@@ -94,6 +94,7 @@ public class ZarrReader extends FormatReader {
   public static final boolean SAVE_ANNOTATIONS_DEFAULT = false;
   public static final String LIST_PIXELS_KEY = "omezarr.list_pixels";
   public static final boolean LIST_PIXELS_DEFAULT = false;
+  public static final String LIST_PIXELS_ENV_KEY = "OME_ZARR_LIST_PIXELS";
   public static final String INCLUDE_LABELS_KEY = "omezarr.include_labels";
   public static final boolean INCLUDE_LABELS_DEFAULT = false;
   protected transient ZarrService zarrService;
@@ -1094,8 +1095,7 @@ public class ZarrReader extends FormatReader {
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
 
-    
-    boolean skipPixels = noPixels || !listPixels();
+    boolean skipPixels = noPixels || !listPixels() || !systemEnvListPixels();
     boolean includeLabels = includeLabels();
     LOGGER.error("ZarrReader getUsed files, skipPixels: {}", skipPixels);
     LOGGER.error("ZarrReader fetching list of used files: {}", zarrRootPath);
@@ -1171,4 +1171,10 @@ public class ZarrReader extends FormatReader {
     return INCLUDE_LABELS_DEFAULT;
   }
 
+  private boolean systemEnvListPixels() {
+    String value = System.getenv(LIST_PIXELS_ENV_KEY);
+    if (value != null && value.equalsIgnoreCase("true")) return true;
+    if (value != null &&  value.toLowerCase().equals("false")) return false;
+    return LIST_PIXELS_DEFAULT;
+  }
 }
