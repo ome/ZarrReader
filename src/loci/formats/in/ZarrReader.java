@@ -1177,4 +1177,18 @@ public class ZarrReader extends FormatReader {
     if (value != null &&  value.toLowerCase().equals("false")) return false;
     return LIST_PIXELS_DEFAULT;
   }
+  
+  private void reloadOptionsFile(String id) {
+    String optionsFile = DynamicMetadataOptions.getMetadataOptionsFile(id);
+    if (optionsFile != null) {
+      MetadataOptions options = getMetadataOptions();
+      if (options != null && options instanceof DynamicMetadataOptions) {
+        try {
+          ((DynamicMetadataOptions) options).loadOptions(optionsFile, getAvailableOptions());
+        } catch (Exception e) {
+          LOGGER.warn("Exception while attempting to read metadata options file", e);
+        }
+      }
+    }
+  }
 }
