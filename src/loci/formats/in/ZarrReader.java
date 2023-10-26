@@ -93,7 +93,7 @@ public class ZarrReader extends FormatReader {
   public static final String SAVE_ANNOTATIONS_KEY = "zarrreader.save_annotations";
   public static final boolean SAVE_ANNOTATIONS_DEFAULT = false;
   public static final String LIST_PIXELS_KEY = "omezarr.list_pixels";
-  public static final boolean LIST_PIXELS_DEFAULT = false;
+  public static final boolean LIST_PIXELS_DEFAULT = true;
   public static final String LIST_PIXELS_ENV_KEY = "OME_ZARR_LIST_PIXELS";
   public static final String INCLUDE_LABELS_KEY = "omezarr.include_labels";
   public static final boolean INCLUDE_LABELS_DEFAULT = false;
