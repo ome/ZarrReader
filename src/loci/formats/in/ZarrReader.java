@@ -187,7 +187,7 @@ public class ZarrReader extends FormatReader {
     String canonicalPath = new Location(zarrRootPath).getCanonicalPath();
 
     initializeZarrService(canonicalPath);
-    reloadOptionsFile(zarrRootPath+".bfoptions");
+    reloadOptionsFile(zarrRootPath);
 
     ArrayList<String> omeSeriesOrder = new ArrayList<String>();
     if(omeMetaFile.exists()) {
@@ -1095,7 +1095,7 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
-    reloadOptionsFile(zarrRootPath+".bfoptions");
+    reloadOptionsFile(zarrRootPath);
 
     boolean skipPixels = noPixels || !listPixels() || !systemEnvListPixels();
     boolean includeLabels = includeLabels();
