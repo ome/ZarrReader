@@ -24,7 +24,6 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'zulu'
-          cache: 'maven'
       - name: Build
         run: mvn ${{ env.maven_commands }}
       - name: Upload JAR as artifact
