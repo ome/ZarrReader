@@ -983,8 +983,8 @@ public class ZarrReader extends FormatReader {
         NonNegativeInteger row = omexmlMeta.getWellRow(plateIndex, wellIndex);
 
         String rowLetter = getRowString(row.getValue());
-        String expectedPath = rowLetter + File.separator + (col.getValue() + 1) + File.separator  + "0";
         for (int wellSampleIndex = 0; wellSampleIndex < omexmlMeta.getWellSampleCount(plateIndex, wellIndex); wellSampleIndex++) { 
+          String expectedPath = rowLetter + File.separator + (col.getValue() + 1) + File.separator  + wellSampleIndex;
           String imageRef = omexmlMeta.getWellSampleImageRef(plateIndex, wellIndex, wellSampleIndex);
           imageRefPaths.put(imageRef, expectedPath);
         }
