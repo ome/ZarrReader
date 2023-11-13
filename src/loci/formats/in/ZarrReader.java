@@ -1099,8 +1099,6 @@ public class ZarrReader extends FormatReader {
 
     boolean skipPixels = noPixels || !listPixels() || !systemEnvListPixels();
     boolean includeLabels = includeLabels();
-    LOGGER.error("ZarrReader getUsed files, skipPixels: {}", skipPixels);
-    LOGGER.error("ZarrReader fetching list of used files: {}", zarrRootPath);
     try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
       paths.filter(Files::isRegularFile) 
       .forEach(path -> {if ((!skipPixels && includeLabels) || 
@@ -1108,7 +1106,6 @@ public class ZarrReader extends FormatReader {
           (skipPixels && includeLabels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))) ||
           (skipPixels && !includeLabels &&  !path.toString().toLowerCase().contains("labels") &&(path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
         usedFiles.add(path.toFile().getAbsolutePath());
-        LOGGER.error("Adding to the used files list: {}", path.toFile().getAbsolutePath());
       });
     } catch (IOException e) {
       e.printStackTrace();
@@ -1183,7 +1180,6 @@ public class ZarrReader extends FormatReader {
   private void reloadOptionsFile(String id) {
     String optionsFile = DynamicMetadataOptions.getMetadataOptionsFile(id);
     if (optionsFile != null) {
-      LOGGER.error("ZarrReader loaded options file from: {}", id);
       MetadataOptions options = getMetadataOptions();
       if (options != null && options instanceof DynamicMetadataOptions) {
         try {
