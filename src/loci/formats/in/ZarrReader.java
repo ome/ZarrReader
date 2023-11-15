@@ -123,7 +123,7 @@ public class ZarrReader extends FormatReader {
   public int getRequiredDirectories(String[] files)
     throws FormatException, IOException
   {
-    return FormatTools.getRequiredDirectories(files);
+    return 1;
   }
 
   /* @see loci.formats.IFormatReader#isThisType(String, boolean) */
