@@ -89,7 +89,7 @@ import loci.formats.services.ZarrService;
 public class ZarrReader extends FormatReader {
 
   public static final String QUICK_READ_KEY = "omezarr.quick_read";
-  public static final boolean QUICK_READ_DEFAULT = true;
+  public static final boolean QUICK_READ_DEFAULT = false;
   public static final String SAVE_ANNOTATIONS_KEY = "omezarr.save_annotations";
   public static final boolean SAVE_ANNOTATIONS_DEFAULT = false;
   public static final String LIST_PIXELS_KEY = "omezarr.list_pixels";
