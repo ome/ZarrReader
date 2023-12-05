@@ -562,7 +562,6 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-
   private void openZarr() {
     try {
       if (currentId != null && zarrService != null) {
@@ -1134,6 +1133,10 @@ public class ZarrReader extends FormatReader {
     return optionsList;
   }
 
+  /**
+   * Used to decide if all the zarr metadata is additionally stored as XML annotations
+   * @return boolean true if all metadata should be saved as an annotation, default is false
+   */
   public boolean saveAnnotations() {
     MetadataOptions options = getMetadataOptions();
     if (options instanceof DynamicMetadataOptions) {
@@ -1143,6 +1146,10 @@ public class ZarrReader extends FormatReader {
     return SAVE_ANNOTATIONS_DEFAULT;
   }
   
+  /**
+   * Used to decide if getUsedFiles should list all of the pixel chunks 
+   * @return boolean true if the full list of files including pixels should be returned, default is true
+   */
   public boolean listPixels() {
     MetadataOptions options = getMetadataOptions();
     if (options instanceof DynamicMetadataOptions) {
@@ -1152,6 +1159,11 @@ public class ZarrReader extends FormatReader {
     return LIST_PIXELS_DEFAULT;
   }
   
+  /**
+   * Used to decide if performance improvements are applied during initialization
+   * This makes assumptions about the data, assuming that the shape of images remains consistent
+   * @return boolean true if performance improvements should be applied, default is false
+   */
   public boolean quickRead() {
     MetadataOptions options = getMetadataOptions();
     if (options instanceof DynamicMetadataOptions) {
@@ -1160,7 +1172,11 @@ public class ZarrReader extends FormatReader {
     }
     return QUICK_READ_DEFAULT;
   }
-  
+ 
+  /**
+   * Used to decide if images stored in the label sub folder should be included in the list of images
+   * @return boolean true if images in the label folder should be included, default is false
+   */
   public boolean includeLabels() {
     MetadataOptions options = getMetadataOptions();
     if (options instanceof DynamicMetadataOptions) {
@@ -1177,6 +1193,11 @@ public class ZarrReader extends FormatReader {
     return LIST_PIXELS_DEFAULT;
   }
   
+  /**
+   * Reloads the bfoptions file so that the options are able to be read for each getUsedFiles
+   * Otherwise the options are read when initialised and saved as part of the memo file
+   * @param id of the options file to reload
+   */
   private void reloadOptionsFile(String id) {
     String optionsFile = DynamicMetadataOptions.getMetadataOptionsFile(id);
     if (optionsFile != null) {
