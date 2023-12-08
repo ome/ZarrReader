@@ -37,10 +37,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.FileVisitOption;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -64,6 +68,8 @@ import loci.formats.FormatException;
 import loci.formats.FormatReader;
 import loci.formats.FormatTools;
 import loci.formats.MetadataTools;
+import loci.formats.in.DynamicMetadataOptions;
+import loci.formats.in.MetadataOptions;
 import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.JZarrServiceImpl;
@@ -82,10 +88,21 @@ import loci.formats.services.ZarrService;
 
 public class ZarrReader extends FormatReader {
 
+  public static final String QUICK_READ_KEY = "omezarr.quick_read";
+  public static final boolean QUICK_READ_DEFAULT = false;
+  public static final String SAVE_ANNOTATIONS_KEY = "omezarr.save_annotations";
+  public static final boolean SAVE_ANNOTATIONS_DEFAULT = false;
+  public static final String LIST_PIXELS_KEY = "omezarr.list_pixels";
+  public static final boolean LIST_PIXELS_DEFAULT = true;
+  public static final String LIST_PIXELS_ENV_KEY = "OME_ZARR_LIST_PIXELS";
+  public static final String INCLUDE_LABELS_KEY = "omezarr.include_labels";
+  public static final boolean INCLUDE_LABELS_DEFAULT = false;
   protected transient ZarrService zarrService;
-  private ArrayList<String> arrayPaths= new ArrayList<String>();
+  private ArrayList<String> arrayPaths = new ArrayList<String>();
+  private ArrayList<String> groupKeys = new ArrayList<String>();
   private HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>();
   private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
+  private HashSet<Integer> uniqueResCounts = new HashSet<Integer>();
   private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
   private String dimensionOrder = "XYZCT";
   private int wellCount = 0;
@@ -93,6 +110,7 @@ public class ZarrReader extends FormatReader {
   private HashMap<String, ArrayList<String>> pathArrayDimensions = new HashMap<String, ArrayList<String>>();
   private boolean planesPrePopulated = false;
   private boolean hasSPW = false;
+  private transient int currentOpenZarr = -1;
 
   public ZarrReader() {
     super("Zarr", "zarr");
@@ -122,12 +140,20 @@ public class ZarrReader extends FormatReader {
   @Override
   public void close() throws IOException {
     arrayPaths.clear();
+    groupKeys.clear();
     resSeries.clear();
     resCounts.clear();
+    uniqueResCounts.clear();
     resIndexes.clear();
+    pathArrayDimensions.clear();
     if (zarrService != null) {
       zarrService.close();
     }
+    planesPrePopulated = false;
+    hasSPW = false;
+    currentOpenZarr = -1;
+    wellCount = 0;
+    wellSamplesCount = 0;
     super.close();
   }
 
@@ -151,6 +177,7 @@ public class ZarrReader extends FormatReader {
   @Override
   protected void initFile(String id) throws FormatException, IOException {
     super.initFile(id);
+    LOGGER.debug("ZarrReader attempting to initialize file: {}", id);
     final MetadataStore store = makeFilterMetadata();
     Location zarrFolder = new Location(id);
     String zarrPath = zarrFolder.getAbsolutePath();
@@ -160,16 +187,19 @@ public class ZarrReader extends FormatReader {
     String canonicalPath = new Location(zarrRootPath).getCanonicalPath();
 
     initializeZarrService(canonicalPath);
+    reloadOptionsFile(zarrRootPath);
 
+    ArrayList<String> omeSeriesOrder = new ArrayList<String>();
     if(omeMetaFile.exists()) {
-      parseOMEXML(omeMetaFile, store);
+      LOGGER.debug("ZarrReader parsing existing OME-XML");
+      parseOMEXML(omeMetaFile, store, omeSeriesOrder);
     }
     // Parse base level attributes
     Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
     int attrIndex = 0;
     if (attr != null && !attr.isEmpty()) {
-      parseResolutionCount(zarrRootPath, "");
-      parseOmeroMetadata(zarrRootPath, "");
+      parseResolutionCount(zarrRootPath, "", attr);
+      parseOmeroMetadata(zarrRootPath, attr);
       String jsonAttr;
       try {
         jsonAttr = ZarrUtils.toJson(attr, true);
@@ -181,52 +211,70 @@ public class ZarrReader extends FormatReader {
         e.printStackTrace();
       }
     }
+    generateGroupKeys(attr, canonicalPath);
 
     // Parse group attributes
-    for (String key: zarrService.getGroupKeys(canonicalPath)) {
+    if (groupKeys.isEmpty()) {
+      LOGGER.debug("ZarrReader adding group keys from ZarrService");
+      groupKeys.addAll(zarrService.getGroupKeys(canonicalPath));
+    }
+
+    List<String> orderedGroupKeys = reorderGroupKeys(groupKeys, omeSeriesOrder);
+    for (String key: orderedGroupKeys) {
       Map<String, Object> attributes = zarrService.getGroupAttr(canonicalPath+File.separator+key);
       if (attributes != null && !attributes.isEmpty()) {
-        parseResolutionCount(zarrRootPath, key);
-        parseLabels(zarrRootPath, key);
-        parseImageLabels(zarrRootPath, key);
+        parseResolutionCount(zarrRootPath, key, attributes);
+        parseLabels(zarrRootPath, attributes);
+        parseImageLabels(zarrRootPath, attributes);
         attrIndex++;
-        String jsonAttr;
-        try {
-          jsonAttr = ZarrUtils.toJson(attributes, true);
-          store.setXMLAnnotationValue(jsonAttr, attrIndex);
-          String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
-          store.setXMLAnnotationID(xml_id, attrIndex);
-        } catch (JZarrException e) {
-          LOGGER.warn("Failed to convert attributes to JSON");
-          e.printStackTrace();
+        if (saveAnnotations()) {
+          String jsonAttr;
+          try {
+            jsonAttr = ZarrUtils.toJson(attributes, true);
+            store.setXMLAnnotationValue(jsonAttr, attrIndex);
+            String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
+            store.setXMLAnnotationID(xml_id, attrIndex);
+          } catch (JZarrException e) {
+            LOGGER.warn("Failed to convert attributes to JSON");
+            e.printStackTrace();
+          }
         }
       }
     }
 
     // Parse array attributes
-    for (String key: zarrService.getArrayKeys(canonicalPath)) {
-      Map<String, Object> attributes = zarrService.getArrayAttr(canonicalPath+File.separator+key);
-      if (attributes != null && !attributes.isEmpty()) {
-        attrIndex++;
-        String jsonAttr;
-        try {
-          jsonAttr = ZarrUtils.toJson(attributes, true);
-          store.setXMLAnnotationValue(jsonAttr, attrIndex);
-          String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
-          store.setXMLAnnotationID(xml_id, attrIndex);
-        } catch (JZarrException e) {
-          LOGGER.warn("Failed to convert attributes to JSON");
-          e.printStackTrace();
+    generateArrayKeys(attr, canonicalPath);
+    if (arrayPaths.isEmpty()) {
+      LOGGER.debug("ZarrReader adding Array Keys from ZarrService");
+      arrayPaths.addAll(zarrService.getArrayKeys(canonicalPath));
+    }
+    orderArrayPaths(zarrRootPath);
+
+    if (saveAnnotations()) {
+      for (String key: arrayPaths) {
+        Map<String, Object> attributes = zarrService.getArrayAttr(zarrRootPath+File.separator+key);
+        if (attributes != null && !attributes.isEmpty()) {
+          attrIndex++;
+          String jsonAttr;
+          try {
+            jsonAttr = ZarrUtils.toJson(attributes, true);
+            store.setXMLAnnotationValue(jsonAttr, attrIndex);
+            String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
+            store.setXMLAnnotationID(xml_id, attrIndex);
+          } catch (JZarrException e) {
+            LOGGER.warn("Failed to convert attributes to JSON");
+            e.printStackTrace();
+          }
         }
       }
     }
 
-    arrayPaths = new ArrayList<String>();
-    arrayPaths.addAll(zarrService.getArrayKeys(canonicalPath));
-    orderArrayPaths(zarrRootPath);
-
     core.clear();
     int resolutionTotal = 0;
+    
+    HashMap<Integer, int[]> resShapes = new HashMap<Integer, int[]>();
+    int pixelType = -1;
+
     for (int i=0; i<arrayPaths.size(); i++) {
       int resolutionCount = 1;
       if (resCounts.get(arrayPaths.get(i)) != null) {
@@ -240,21 +288,36 @@ public class ZarrReader extends FormatReader {
       CoreMetadata ms = new CoreMetadata();
       core.add(ms);
 
+      boolean openZarr = true;
+      if (quickRead() && resShapes.containsKey(resolutionIndex) && !arrayPaths.get(i).toLowerCase().contains("label")) {
+        openZarr = false;
+      }
+        
       if (hasFlattenedResolutions()) {
-        setSeries(i);
+        setSeries(i, openZarr);
       }
       else {
-        setSeries(coreIndexToSeries(i));
-        setResolution(resolutionIndex);
+        setSeries(coreIndexToSeries(i), openZarr);
+        setResolution(resolutionIndex, openZarr);
         if (i == resolutionTotal + resolutionCount - 1) {
           resolutionTotal += resolutionCount;
         }
       }
-
-      ms.pixelType = zarrService.getPixelType();
-      int[] shape = zarrService.getShape();
-      if (shape.length < 5) {
-        shape = get5DShape(shape);
+      
+      int[] shape;
+      if (openZarr) {
+        LOGGER.debug("ZarrReader opening Zarr to get Shape");
+        pixelType = zarrService.getPixelType();
+        ms.pixelType = pixelType;
+        shape = zarrService.getShape();
+        if (shape.length < 5) {
+          shape = get5DShape(shape);
+        } 
+        resShapes.put(resolutionIndex, shape);
+      }
+      else {
+        ms.pixelType = pixelType;
+        shape = resShapes.get(resolutionIndex);
       }
 
       ms.sizeX = shape[4];
@@ -282,15 +345,76 @@ public class ZarrReader extends FormatReader {
       ms.interleaved = false;
       ms.resolutionCount = resolutionCount;
     }
-
     MetadataTools.populatePixels( store, this, !planesPrePopulated );
     for (int i = 0; i < getSeriesCount(); i++) {
       store.setImageName(arrayPaths.get(seriesToCoreIndex(i)), i);
       store.setImageID(MetadataTools.createLSID("Image", i), i);
     }
-    parsePlate(zarrRootPath, "", store);
-
+    parsePlate(attr, zarrRootPath, "", store);
     setSeries(0);
+    LOGGER.debug("ZarrReader initialization complete");
+  }
+  
+  private List<String> reorderGroupKeys(ArrayList<String> groupKeys, List<String> originalKeys) {
+    // Reorder group keys to maintain the original order from the OME-XML provided by bioformats2raw
+    if (originalKeys.isEmpty() || !groupKeys.containsAll(originalKeys)) {
+      LOGGER.warn("Mismatch with group key paths and original OME-XML metadata, original ordering wont be maintained");
+      return reorderGroupKeys(groupKeys);
+    }
+    List<String> groupKeysList = new ArrayList<String>();
+    groupKeys.removeAll(originalKeys);
+    groupKeysList.addAll(originalKeys);
+    groupKeysList.addAll(groupKeys);
+    return groupKeysList;
+  }
+
+  private List<String> reorderGroupKeys(ArrayList<String> groupKeys) {
+    // Reorder group keys to avoid order such A/1, A/10, A/11, A/12, A/2, A/20, A/3, A/4 
+    List<String> groupKeysList = new ArrayList<String>();
+    groupKeysList.addAll(groupKeys);
+    Collections.sort(groupKeysList, keyComparator);
+    return groupKeysList;
+  }
+
+  private static Comparator<String> keyComparator = (a,b)->{
+    String[] aParts = a.split("/");
+    String[] bParts = b.split("/");
+
+    int numParts = aParts.length - bParts.length;
+    if (numParts != 0) return numParts;
+
+    for (int i = 0; i < aParts.length; i++) {
+      String aPart = aParts[i];
+      String bPart = bParts[i];
+
+      boolean isAInt = isInteger(aPart);
+      boolean isBInt = isInteger(bPart);
+      if (isAInt && !isBInt) return -1;
+      if (!isAInt && isBInt) return 1;
+
+      if (isAInt) {
+        int numResult = Integer.compare(Integer.valueOf(aPart), Integer.valueOf(bPart));
+        if (numResult != 0) return numResult;
+      }
+      else {
+        int stringResult = aPart.compareTo(bPart);
+        if (stringResult != 0) return stringResult;
+      }
+    }
+
+    return 0;
+  };
+
+  private static boolean isInteger(String s) {
+    if(s.isEmpty()) return false;
+    for(int i = 0; i < s.length(); i++) {
+      if(i == 0 && s.charAt(i) == '-') {
+        if(s.length() == 1) return false;
+        else continue;
+      }
+      if(Character.digit(s.charAt(i), 10) < 0) return false;
+    }
+    return true;
   }
 
   /**
@@ -346,6 +470,7 @@ public class ZarrReader extends FormatReader {
   @Override
   public byte[] openBytes(int no, byte[] buf, int x, int y, int w, int h) throws FormatException, IOException {
     FormatTools.checkPlaneParameters(this, no, buf.length, x, y, w, h);
+    openZarr();
     int[] coordinates = getZCTCoords(no);
     int [] shape = {1, 1, 1, h, w};
     int zarrArrayShapeSize = zarrService.getShape().length;
@@ -415,14 +540,26 @@ public class ZarrReader extends FormatReader {
 
   @Override
   public void setSeries(int no) {
+    setSeries(no, false);
+  }
+  
+  public void setSeries(int no, boolean openZarr) {
     super.setSeries(no);
-    openZarr();
+    if (openZarr) {
+      openZarr();
+    }
   }
 
   @Override
   public void setResolution(int no) {
+    setResolution(no, false);
+  }
+  
+  public void setResolution(int no, boolean openZarr) {
     super.setResolution(no);
-    openZarr();
+    if (openZarr) {
+      openZarr();
+    }
   }
 
   private void openZarr() {
@@ -435,9 +572,13 @@ public class ZarrReader extends FormatReader {
           if (!hasFlattenedResolutions()) {
             seriesIndex += resolution;
           }
-          newZarrPath += File.separator + arrayPaths.get(seriesIndex);
-          String canonicalPath = new Location(newZarrPath).getCanonicalPath();
-          zarrService.open(canonicalPath);
+          if (seriesIndex != currentOpenZarr) {
+            newZarrPath += File.separator + arrayPaths.get(seriesIndex);
+            String canonicalPath = new Location(newZarrPath).getCanonicalPath();
+            LOGGER.debug("Opening zarr for series {} at path: {}", seriesIndex, canonicalPath);
+            zarrService.open(canonicalPath);
+            currentOpenZarr = seriesIndex;
+          }
         }
       }
     } catch (IOException | FormatException e) {
@@ -451,15 +592,14 @@ public class ZarrReader extends FormatReader {
         arrayPaths.remove(arrayPath);
       }
       for (String arrayPath: resSeries.get(i)) {
-        arrayPaths.add(arrayPath);
+        if (includeLabels() || !arrayPath.toLowerCase().contains("labels")) {
+          arrayPaths.add(arrayPath);
+        }
       }
     }
   }
 
-  private void parseResolutionCount(String root, String key) throws IOException, FormatException {
-    String path = key.isEmpty() ? root : root + File.separator + key;
-    String canonicalPath = new Location(path).getCanonicalPath();
-    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
+  private void parseResolutionCount(String root, String key, Map<String, Object> attr) throws IOException, FormatException {
     ArrayList<Object> multiscales = (ArrayList<Object>) attr.get("multiscales");
     if (multiscales != null) {
       for (int x = 0; x < multiscales.size(); x++) {
@@ -501,6 +641,7 @@ public class ZarrReader extends FormatReader {
           int numRes = multiscalePaths.size();
           if (i == 0) {
             resCounts.put(key.isEmpty() ? scalePath : key + File.separator + scalePath, numRes);
+            uniqueResCounts.add(numRes);
           }
           resIndexes.put(key.isEmpty() ? scalePath : key + File.separator + scalePath, i);
           ArrayList<String> list = resSeries.get(resCounts.size() - 1);
@@ -524,10 +665,75 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parsePlate(String root, String key, MetadataStore store) throws IOException, FormatException {
-    String path = key.isEmpty() ? root : root + File.separator + key;
-    String canonicalPath = new Location(path).getCanonicalPath();
-    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
+  private void generateArrayKeys(Map<String, Object> attr, String canonicalPath) {
+    if (uniqueResCounts.size() != 1) {
+      LOGGER.debug("Cannout automatically generate ArrayKeys as resolution counts differ");
+    }
+    Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
+    if (plates != null) {
+      ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
+      ArrayList<Object> rows = (ArrayList<Object>)plates.get("rows");
+      Integer fieldCount = (Integer) plates.get("field_count");
+      for (Object row: rows) {
+        String rowName = ((Map<String, String>) row).get("name");
+        for (Object column: columns) {
+          String columnName = ((Map<String, String>) column).get("name");
+          for (int i = 0; i < fieldCount; i++) {
+            int resolutionCount = (Integer)(uniqueResCounts.toArray())[0];
+            for (int j = 0; j < resolutionCount; j++) {
+              String key = rowName + File.separator + columnName + File.separator + i + File.separator + j;
+              if (Files.isDirectory(Paths.get(canonicalPath+File.separator+key))) {
+                arrayPaths.add(rowName + File.separator + columnName + File.separator + i + File.separator + j);
+              }
+              else {
+                LOGGER.debug("Skipping array path as sparse data: {}", key);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private void generateGroupKeys(Map<String, Object> attr, String canonicalPath) {
+    Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
+    if (plates != null) {
+      ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
+      ArrayList<Object> rows = (ArrayList<Object>)plates.get("rows");
+      Integer fieldCount = (Integer) plates.get("field_count");
+
+      for (Object row: rows) {
+        String rowName = ((Map<String, String>) row).get("name");
+        if (Files.isDirectory(Paths.get(canonicalPath+File.separator+rowName))) {
+          groupKeys.add(rowName);
+        }
+        else {
+          LOGGER.debug("Skipping group key as sparse data: {}", rowName);
+        }
+        for (Object column: columns) {
+          String columnName = ((Map<String, String>) column).get("name");
+          String columnKey = rowName + File.separator + columnName;
+          if (Files.isDirectory(Paths.get(canonicalPath+File.separator+columnKey))) {
+            groupKeys.add(columnKey);
+          }
+          else {
+            LOGGER.debug("Skipping group key as sparse data: {}", columnKey);
+          }
+          for (int i = 0; i < fieldCount; i++) {
+            String key = rowName + File.separator + columnName + File.separator + i;
+            if (Files.isDirectory(Paths.get(canonicalPath+File.separator+key))) {
+              groupKeys.add(key);
+            }
+            else {
+              LOGGER.debug("Skipping group key as sparse data: {}", key);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private void parsePlate(Map<String, Object> attr, String root, String key, MetadataStore store) throws IOException, FormatException {
     Map<Object, Object> plates = (Map<Object, Object>) attr.get("plate");
     if (plates != null) {
       ArrayList<Object> columns = (ArrayList<Object>)plates.get("columns");
@@ -535,7 +741,7 @@ public class ZarrReader extends FormatReader {
       ArrayList<Object> wells = (ArrayList<Object>)plates.get("wells");
       ArrayList<Object>  acquisitions = (ArrayList<Object> )plates.get("acquisitions");
       String plateName = (String) plates.get("name");
-      String fieldCount = (String) plates.get("filed_count");
+      Integer fieldCount = (Integer) plates.get("field_count");
 
       String plate_id =  MetadataTools.createLSID("Plate", 0);
       store.setPlateID(plate_id, 0);
@@ -646,10 +852,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseLabels(String root, String key) throws IOException, FormatException {
-    String path = key.isEmpty() ? root : root + File.separator + key;
-    String canonicalPath = new Location(path).getCanonicalPath();
-    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
+  private void parseLabels(String root, Map<String, Object> attr) throws IOException, FormatException {
     ArrayList<Object> labels = (ArrayList<Object>) attr.get("labels");
     if (labels != null) {
       for (int l = 0; l < labels.size(); l++) {
@@ -658,10 +861,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseImageLabels(String root, String key) throws IOException, FormatException {
-    String path = key.isEmpty() ? root : root + File.separator + key;
-    String canonicalPath = new Location(path).getCanonicalPath();
-    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
+  private void parseImageLabels(String root, Map<String, Object> attr) throws IOException, FormatException {
     Map<String, Object> imageLabel = (Map<String, Object>) attr.get("image-label");
     if (imageLabel != null) {
       String version = (String) imageLabel.get("version");
@@ -698,10 +898,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseOmeroMetadata(String root, String key) throws IOException, FormatException {
-    String path = key.isEmpty() ? root : root + File.separator + key;
-    String canonicalPath = new Location(path).getCanonicalPath();
-    Map<String, Object> attr = zarrService.getGroupAttr(canonicalPath);
+  private void parseOmeroMetadata(String root, Map<String, Object> attr) throws IOException, FormatException {
     Map<String, Object> omeroMetadata = (Map<String, Object>) attr.get("omero");
     if (omeroMetadata != null) {
       Integer id = (Integer) omeroMetadata.get("id");
@@ -733,7 +930,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseOMEXML(Location omeMetaFile, MetadataStore store) throws IOException, FormatException {
+  private void parseOMEXML(Location omeMetaFile, MetadataStore store, ArrayList<String> origSeries) throws IOException, FormatException {
     Document omeDocument = null;
     try (RandomAccessInputStream measurement =
         new RandomAccessInputStream(omeMetaFile.getAbsolutePath())) {
@@ -775,6 +972,24 @@ public class ZarrReader extends FormatReader {
 
     int numDatasets = omexmlMeta.getImageCount();
 
+    // Map of the well location for each imageReference
+    // Later we will map the series index to the imageReference
+    // This allows us to maintain the series order when parsing the Zarr groups
+    Map<String, String> imageRefPaths = new HashMap<String, String>();
+    for (int plateIndex = 0; plateIndex < omexmlMeta.getPlateCount(); plateIndex++) { 
+      for (int wellIndex = 0; wellIndex < omexmlMeta.getWellCount(plateIndex); wellIndex++) { 
+        NonNegativeInteger col = omexmlMeta.getWellColumn(plateIndex, wellIndex);
+        NonNegativeInteger row = omexmlMeta.getWellRow(plateIndex, wellIndex);
+
+        String rowLetter = getRowString(row.getValue());
+        for (int wellSampleIndex = 0; wellSampleIndex < omexmlMeta.getWellSampleCount(plateIndex, wellIndex); wellSampleIndex++) { 
+          String expectedPath = rowLetter + File.separator + (col.getValue() + 1) + File.separator  + wellSampleIndex;
+          String imageRef = omexmlMeta.getWellSampleImageRef(plateIndex, wellIndex, wellSampleIndex);
+          imageRefPaths.put(imageRef, expectedPath);
+        }
+      }
+    }
+
     int oldSeries = getSeries();
     core.clear();
     for (int i=0; i<numDatasets; i++) {
@@ -791,7 +1006,13 @@ public class ZarrReader extends FormatReader {
         throw new FormatException("Image dimensions not found");
       }
 
-      Boolean endian = zarrService.isLittleEndian();;
+      String imageId = omexmlMeta.getImageID(i);
+      if (!imageRefPaths.isEmpty() && imageRefPaths.containsKey(imageId)) {
+        String expectedZarrPath = imageRefPaths.get(imageId);
+        origSeries.add(expectedZarrPath);
+      }
+
+      Boolean endian = zarrService.isLittleEndian();
       String pixType = omexmlMeta.getPixelsType(i).toString();
       ms.dimensionOrder = omexmlMeta.getPixelsDimensionOrder(i).toString();
       ms.sizeX = w.intValue();
@@ -848,6 +1069,16 @@ public class ZarrReader extends FormatReader {
  
     MetadataConverter.convertMetadata( omexmlMeta, store );
   }
+  
+  public static String getRowString(int rowIndex) {
+    StringBuilder sb = new StringBuilder();
+    if (rowIndex == 0) sb.append('A');
+    while (rowIndex > 0) {
+        sb.append((char)('A' + (rowIndex % 26)));
+        rowIndex /= 26;
+    }
+    return sb.reverse().toString();
+  }
 
   private Double getDouble(Map<String, Object> src, String key) {
     Number val = (Number) src.get(key);
@@ -863,13 +1094,21 @@ public class ZarrReader extends FormatReader {
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
     ArrayList<String> usedFiles = new ArrayList<String>();
+    reloadOptionsFile(zarrRootPath);
+
+    boolean skipPixels = noPixels || !listPixels() || !systemEnvListPixels();
+    boolean includeLabels = includeLabels();
     try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
-      paths.filter(Files::isRegularFile)
-              .forEach(path -> usedFiles.add(path.toFile().getAbsolutePath()));
+      paths.filter(Files::isRegularFile) 
+      .forEach(path -> {if ((!skipPixels && includeLabels) || 
+          (!skipPixels && !includeLabels && !path.toString().toLowerCase().contains("labels")) ||
+          (skipPixels && includeLabels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))) ||
+          (skipPixels && !includeLabels &&  !path.toString().toLowerCase().contains("labels") &&(path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
+        usedFiles.add(path.toFile().getAbsolutePath());
+      });
     } catch (IOException e) {
       e.printStackTrace();
     }
-
     String[] fileArr = new String[usedFiles.size()];
     fileArr = usedFiles.toArray(fileArr);
     return fileArr;
@@ -883,4 +1122,93 @@ public class ZarrReader extends FormatReader {
       FormatTools.NON_SPECIAL_DOMAINS;
   }
 
+  /* @see loci.formats.FormatReader#initFile(String) */
+  @Override
+  protected ArrayList<String> getAvailableOptions() {
+    ArrayList<String> optionsList = super.getAvailableOptions();
+    optionsList.add(SAVE_ANNOTATIONS_KEY);
+    optionsList.add(LIST_PIXELS_KEY);
+    optionsList.add(QUICK_READ_KEY);
+    optionsList.add(INCLUDE_LABELS_KEY);
+    return optionsList;
+  }
+
+  /**
+   * Used to decide if all the zarr metadata is additionally stored as XML annotations
+   * @return boolean true if all metadata should be saved as an annotation, default is false
+   */
+  public boolean saveAnnotations() {
+    MetadataOptions options = getMetadataOptions();
+    if (options instanceof DynamicMetadataOptions) {
+      return ((DynamicMetadataOptions) options).getBoolean(
+          SAVE_ANNOTATIONS_KEY, SAVE_ANNOTATIONS_DEFAULT);
+    }
+    return SAVE_ANNOTATIONS_DEFAULT;
+  }
+  
+  /**
+   * Used to decide if getUsedFiles should list all of the pixel chunks 
+   * @return boolean true if the full list of files including pixels should be returned, default is true
+   */
+  public boolean listPixels() {
+    MetadataOptions options = getMetadataOptions();
+    if (options instanceof DynamicMetadataOptions) {
+      return ((DynamicMetadataOptions) options).getBoolean(
+          LIST_PIXELS_KEY, LIST_PIXELS_DEFAULT);
+    }
+    return LIST_PIXELS_DEFAULT;
+  }
+  
+  /**
+   * Used to decide if performance improvements are applied during initialization
+   * This makes assumptions about the data, assuming that the shape of images remains consistent
+   * @return boolean true if performance improvements should be applied, default is false
+   */
+  public boolean quickRead() {
+    MetadataOptions options = getMetadataOptions();
+    if (options instanceof DynamicMetadataOptions) {
+      return ((DynamicMetadataOptions) options).getBoolean(
+          QUICK_READ_KEY, QUICK_READ_DEFAULT);
+    }
+    return QUICK_READ_DEFAULT;
+  }
+ 
+  /**
+   * Used to decide if images stored in the label sub folder should be included in the list of images
+   * @return boolean true if images in the label folder should be included, default is false
+   */
+  public boolean includeLabels() {
+    MetadataOptions options = getMetadataOptions();
+    if (options instanceof DynamicMetadataOptions) {
+      return ((DynamicMetadataOptions) options).getBoolean(
+          INCLUDE_LABELS_KEY, INCLUDE_LABELS_DEFAULT);
+    }
+    return INCLUDE_LABELS_DEFAULT;
+  }
+
+  private boolean systemEnvListPixels() {
+    String value = System.getenv(LIST_PIXELS_ENV_KEY);
+    if (value != null && value.equalsIgnoreCase("true")) return true;
+    if (value != null &&  value.toLowerCase().equals("false")) return false;
+    return LIST_PIXELS_DEFAULT;
+  }
+  
+  /**
+   * Reloads the bfoptions file so that the options are able to be read for each getUsedFiles
+   * Otherwise the options are read when initialised and saved as part of the memo file
+   * @param id of the options file to reload
+   */
+  private void reloadOptionsFile(String id) {
+    String optionsFile = DynamicMetadataOptions.getMetadataOptionsFile(id);
+    if (optionsFile != null) {
+      MetadataOptions options = getMetadataOptions();
+      if (options != null && options instanceof DynamicMetadataOptions) {
+        try {
+          ((DynamicMetadataOptions) options).loadOptions(optionsFile, getAvailableOptions());
+        } catch (Exception e) {
+          LOGGER.warn("Exception while attempting to read metadata options file", e);
+        }
+      }
+    }
+  }
 }
