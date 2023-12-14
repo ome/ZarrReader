@@ -36,6 +36,10 @@ and adding the dependency:
 </dependency>
 ```
 
+### Releases
+
+Release versions of OMEZarrReader are also available directly from the [OME artifactory](https://artifacts.openmicroscopy.org/artifactory/webapp/browserepo.html?0&pathId=ome.releases:ome/OMEZarrReader)
+
 ### Bio-Formats tools
 
 If you would like to use OMEZarrReader with the bftools suite, you will need to set the `BC_CP`
@@ -45,11 +49,13 @@ environment variable to include the jar which includes all dependencies:
 BF_CP=target/OMEZarrReader-with-dependencies.jar showinf -nopix your.ome.zarr/.zattrs
 ```
 
-## Known Issues/TODO list
-- Currently working on packaging, discovered issue when connecting to S3 using packaged jar
-- S3 File System Store is likely not ideal sceanrio, other options to be investigated
-- S3 access currently very inefficient
-- Odd issue with data being lost when decompressing bytes in jzarr, an ugly hack is currently in place
-- Identification of S3 location needs updating
-- Refactor code to remove duplication
-- Parse colours for labels
+## Reader specific options
+
+The OMEZarrReader has a number of reader specific options which can be used to customise the reader behaviour. This options can be used in the same manner as the reader options for Bio-Formats outlined [here](https://bio-formats.readthedocs.io/en/latest/formats/options.html#usage). The list of available options are below:
+
+| Option | Default | Description |
+| --- | --- |
+| `omezarr.quick_read` | false | Improves the read performance by limiting the number of files that are parsed. This assumes that the shape and resolution count of all images in a plate remains constant  |
+| `omezarr.save_annotations` | false | Determines if all the Zarr JSON metadata should be stored as XML annotations in the OME Model |
+| `omezarr.list_pixels` | false | Used to decide if getUsedFiles should list all of the pixel chunks |
+| `omezarr.include_labels` | false | Used to decide if images stored in the label sub folder should be included in the list of images |
