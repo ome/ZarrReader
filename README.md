@@ -51,7 +51,9 @@ BF_CP=target/OMEZarrReader-with-dependencies.jar showinf -nopix your.ome.zarr/.z
 
 ## Reader specific options
 
-The OMEZarrReader has a number of reader specific options which can be used to customise the reader behaviour. This options can be used in the same manner as the reader options for Bio-Formats outlined [here](https://bio-formats.readthedocs.io/en/latest/formats/options.html#usage). 
+The OMEZarrReader has a number of reader specific options in version 0.4.0 which can be used to customise the reader behaviour. This options can be used in the same manner as the reader options for Bio-Formats outlined [here](https://bio-formats.readthedocs.io/en/latest/formats/options.html#usage). 
+
+The new default behaviour of the `omezarr.include_labels` option introduced in v0.4.0 represents a change in behaviour from the v0.3 releases. Previously any Zarr arrays found in the labels folder would by default be represented as an additional image series. With the current default settings, Zarr arrays in the labels folder will no longer be included in the list of image series. Changing this setting to `true` will revert to the previous behaviour.
 
 The list of available options are below:
 
