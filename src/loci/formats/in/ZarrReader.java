@@ -82,6 +82,7 @@ import ome.xml.model.Screen;
 import ome.xml.model.StructuredAnnotations;
 import ome.xml.model.primitives.NonNegativeInteger;
 import ome.xml.model.primitives.PositiveInteger;
+import ome.xml.model.primitives.Timestamp;
 import loci.formats.services.OMEXMLService;
 import loci.formats.services.ZarrService;
 
@@ -752,13 +753,27 @@ public class ZarrReader extends FormatReader {
           Map<String, Object> acquistion = (Map<String, Object>) acquisitions.get(a);
           Integer acqId = (Integer) acquistion.get("id");
           String acqName = (String) acquistion.get("name");
-          String acqStartTime = (String) acquistion.get("starttime");
+          String acqDescription = (String) acquistion.get("description");
+          Integer acqStartTime = (Integer) acquistion.get("starttime");
+          Integer acqEndTime = (Integer) acquistion.get("endtime");
           Integer maximumfieldcount = (Integer) acquistion.get("maximumfieldcount");
           acqIdsIndexMap.put(acqId, a);
           store.setPlateAcquisitionID(
               MetadataTools.createLSID("PlateAcquisition", 0, acqId), 0, a);
-          if (maximumfieldcount != null) {
+          if (acqName != null) {
+            store.setPlateAcquisitionName(acqName, 0, a);
+          }
+          if (acqDescription != null) {
+            store.setPlateAcquisitionDescription(acqDescription, 0, a);
+          }
+          if (acqDescription != null) {
             store.setPlateAcquisitionMaximumFieldCount(new PositiveInteger(maximumfieldcount), 0, a);
+          }
+          if (acqStartTime != null) {
+            store.setPlateAcquisitionStartTime(new Timestamp(acqStartTime.toString()), 0, a);
+          }
+          if (acqEndTime != null) {
+            store.setPlateAcquisitionEndTime(new Timestamp(acqEndTime.toString()), 0, a);
           }
         }
       }
