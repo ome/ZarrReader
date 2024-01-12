@@ -766,7 +766,7 @@ public class ZarrReader extends FormatReader {
           if (acqDescription != null) {
             store.setPlateAcquisitionDescription(acqDescription, 0, a);
           }
-          if (acqDescription != null) {
+          if (maximumfieldcount != null) {
             store.setPlateAcquisitionMaximumFieldCount(new PositiveInteger(maximumfieldcount), 0, a);
           }
           if (acqStartTime != null) {
