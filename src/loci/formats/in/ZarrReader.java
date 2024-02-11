@@ -1041,24 +1041,32 @@ public class ZarrReader extends FormatReader {
     }
     setSeries(oldSeries);
 
-    // Remove old PyramidResolution annotations
     OME root = (OME) omexmlMeta.getRoot();
-    StructuredAnnotations annotations = root.getStructuredAnnotations();
-    if (annotations != null) {
-      int numMapAnnotations = annotations.sizeOfMapAnnotationList();
-      int index = 0;
-      for (int i = 0; i < numMapAnnotations; i++) {
-        MapAnnotation mapAnnotation = annotations.getMapAnnotation(index);
-        String namespace = mapAnnotation.getNamespace();
-        if (namespace != null && namespace.toLowerCase().contains("pyramidresolution")) {
-          annotations.removeMapAnnotation(mapAnnotation);
-        }
-        else {
-          index++;
-        }
-      }
-      root.setStructuredAnnotations(annotations);
+    
+    // Optionally remove all annotations
+    if (!saveAnnotations()) {
+      root.setStructuredAnnotations(null);
       omexmlMeta.setRoot((MetadataRoot) root);
+    }
+    else {
+      // Remove old PyramidResolution annotations
+      StructuredAnnotations annotations = root.getStructuredAnnotations();
+      if (annotations != null) {
+        int numMapAnnotations = annotations.sizeOfMapAnnotationList();
+        int index = 0;
+        for (int i = 0; i < numMapAnnotations; i++) {
+          MapAnnotation mapAnnotation = annotations.getMapAnnotation(index);
+          String namespace = mapAnnotation.getNamespace();
+          if (namespace != null && namespace.toLowerCase().contains("pyramidresolution")) {
+            annotations.removeMapAnnotation(mapAnnotation);
+          }
+          else {
+            index++;
+          }
+        }
+        root.setStructuredAnnotations(annotations);
+        omexmlMeta.setRoot((MetadataRoot) root);
+      }
     }
     
     // Remove old Screen and Plate metadata
