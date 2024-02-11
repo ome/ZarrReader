@@ -966,8 +966,10 @@ public class ZarrReader extends FormatReader {
     {
       service = new ServiceFactory().getInstance( OMEXMLService.class );
       omexmlMeta = service.createOMEXMLMetadata( xml );
-      Hashtable originalMetadata = service.getOriginalMetadata(omexmlMeta);
-      if (originalMetadata != null) metadata = originalMetadata;
+      if (saveAnnotations()) {
+        Hashtable originalMetadata = service.getOriginalMetadata(omexmlMeta);
+        if (originalMetadata != null) metadata = originalMetadata;
+      }
       planesPrePopulated = true;
     }
     catch (DependencyException | ServiceException | NullPointerException e1 )
