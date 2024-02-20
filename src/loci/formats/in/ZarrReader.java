@@ -99,15 +99,18 @@ public class ZarrReader extends FormatReader {
   public static final boolean INCLUDE_LABELS_DEFAULT = false;
   protected transient ZarrService zarrService;
   private ArrayList<String> arrayPaths = new ArrayList<String>();
-  private ArrayList<String> groupKeys = new ArrayList<String>();
-  private HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>();
-  private HashMap<String, Integer> resCounts = new HashMap<String, Integer>();
-  private HashSet<Integer> uniqueResCounts = new HashSet<Integer>();
-  private HashMap<String, Integer> resIndexes = new HashMap<String, Integer>();
+  
+  // The below fields are only required for initialization and are not required to be serialized
+  private transient ArrayList<String> groupKeys = new ArrayList<String>(); 
+  private transient HashMap<Integer, ArrayList<String>> resSeries = new HashMap<Integer, ArrayList<String>>(); // can be removed
+  private transient HashMap<String, Integer> resCounts = new HashMap<String, Integer>(); // can be removed
+  private transient HashSet<Integer> uniqueResCounts = new HashSet<Integer>(); // can be removed
+  private transient HashMap<String, Integer> resIndexes = new HashMap<String, Integer>(); // can be removed
+  private transient HashMap<String, ArrayList<String>> pathArrayDimensions = new HashMap<String, ArrayList<String>>(); // can be removed
+  
   private String dimensionOrder = "XYZCT";
   private int wellCount = 0;
   private int wellSamplesCount = 0;
-  private HashMap<String, ArrayList<String>> pathArrayDimensions = new HashMap<String, ArrayList<String>>();
   private boolean planesPrePopulated = false;
   private boolean hasSPW = false;
   private transient int currentOpenZarr = -1;
@@ -200,15 +203,17 @@ public class ZarrReader extends FormatReader {
     if (attr != null && !attr.isEmpty()) {
       parseResolutionCount(zarrRootPath, "", attr);
       parseOmeroMetadata(zarrRootPath, attr);
-      String jsonAttr;
-      try {
-        jsonAttr = ZarrUtils.toJson(attr, true);
-        store.setXMLAnnotationValue(jsonAttr, attrIndex);
-        String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
-        store.setXMLAnnotationID(xml_id, attrIndex);
-      } catch (JZarrException e) {
-        LOGGER.warn("Failed to convert attributes to JSON");
-        e.printStackTrace();
+      if (saveAnnotations()) {
+        String jsonAttr;
+        try {
+          jsonAttr = ZarrUtils.toJson(attr, true);
+          store.setXMLAnnotationValue(jsonAttr, attrIndex);
+          String xml_id = MetadataTools.createLSID("Annotation", attrIndex);
+          store.setXMLAnnotationID(xml_id, attrIndex);
+        } catch (JZarrException e) {
+          LOGGER.warn("Failed to convert attributes to JSON");
+          e.printStackTrace();
+        }
       }
     }
     generateGroupKeys(attr, canonicalPath);
@@ -961,8 +966,10 @@ public class ZarrReader extends FormatReader {
     {
       service = new ServiceFactory().getInstance( OMEXMLService.class );
       omexmlMeta = service.createOMEXMLMetadata( xml );
-      Hashtable originalMetadata = service.getOriginalMetadata(omexmlMeta);
-      if (originalMetadata != null) metadata = originalMetadata;
+      if (saveAnnotations()) {
+        Hashtable originalMetadata = service.getOriginalMetadata(omexmlMeta);
+        if (originalMetadata != null) metadata = originalMetadata;
+      }
       planesPrePopulated = true;
     }
     catch (DependencyException | ServiceException | NullPointerException e1 )
@@ -1034,24 +1041,32 @@ public class ZarrReader extends FormatReader {
     }
     setSeries(oldSeries);
 
-    // Remove old PyramidResolution annotations
     OME root = (OME) omexmlMeta.getRoot();
-    StructuredAnnotations annotations = root.getStructuredAnnotations();
-    if (annotations != null) {
-      int numMapAnnotations = annotations.sizeOfMapAnnotationList();
-      int index = 0;
-      for (int i = 0; i < numMapAnnotations; i++) {
-        MapAnnotation mapAnnotation = annotations.getMapAnnotation(index);
-        String namespace = mapAnnotation.getNamespace();
-        if (namespace != null && namespace.toLowerCase().contains("pyramidresolution")) {
-          annotations.removeMapAnnotation(mapAnnotation);
-        }
-        else {
-          index++;
-        }
-      }
-      root.setStructuredAnnotations(annotations);
+    
+    // Optionally remove all annotations
+    if (!saveAnnotations()) {
+      root.setStructuredAnnotations(null);
       omexmlMeta.setRoot((MetadataRoot) root);
+    }
+    else {
+      // Remove old PyramidResolution annotations
+      StructuredAnnotations annotations = root.getStructuredAnnotations();
+      if (annotations != null) {
+        int numMapAnnotations = annotations.sizeOfMapAnnotationList();
+        int index = 0;
+        for (int i = 0; i < numMapAnnotations; i++) {
+          MapAnnotation mapAnnotation = annotations.getMapAnnotation(index);
+          String namespace = mapAnnotation.getNamespace();
+          if (namespace != null && namespace.toLowerCase().contains("pyramidresolution")) {
+            annotations.removeMapAnnotation(mapAnnotation);
+          }
+          else {
+            index++;
+          }
+        }
+        root.setStructuredAnnotations(annotations);
+        omexmlMeta.setRoot((MetadataRoot) root);
+      }
     }
     
     // Remove old Screen and Plate metadata
