@@ -54,6 +54,7 @@ import com.bc.zarr.ZarrGroup;
 import loci.common.services.AbstractService;
 import loci.formats.FormatException;
 import loci.formats.FormatTools;
+import loci.formats.S3FileSystemStore;
 import loci.formats.meta.IPyramidStore;
 import loci.formats.meta.MetadataRetrieve;
 import ucar.ma2.InvalidRangeException;
@@ -65,6 +66,7 @@ implements ZarrService  {
   public static final String NO_ZARR_MSG = "JZARR is required to read Zarr files.";
 
   // -- Fields --
+  S3FileSystemStore s3fs;
   ZarrArray zarrArray;
   String currentId;
   Compressor zlibComp = CompressorFactory.create("zlib", "level", 8);  // 8 = compression level .. valid values 0 .. 9
@@ -76,20 +78,20 @@ implements ZarrService  {
    */
   public JZarrServiceImpl(String root) {
       checkClassDependency(com.bc.zarr.ZarrArray.class);
-      if (root != null && root.toLowerCase().contains("s3:")) {
-        LOGGER.warn("S3 access currently not supported");
+      if (root != null && (root.toLowerCase().contains("s3:") || root.toLowerCase().contains("s3."))) {
+        s3fs = new S3FileSystemStore(Paths.get(root));
       }
   }
 
   @Override
   public void open(String file) throws IOException, FormatException {
     currentId = file;
-    // TODO: Update s3 location identification
-    if (!file.toLowerCase().contains("s3:")) {
+    if (s3fs == null) {
       zarrArray = ZarrArray.open(file);
     }
-    else {
-      LOGGER.warn("S3 access currently not supported");
+    else {      
+      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(file));
+      zarrArray = ZarrArray.open(s3fs);
     }
   }
   
@@ -100,48 +102,48 @@ implements ZarrService  {
   
   public Map<String, Object> getGroupAttr(String path) throws IOException, FormatException {
     ZarrGroup group = null;
-    if (!path.toLowerCase().contains("s3:")) {
+    if (s3fs == null) {
       group = ZarrGroup.open(path);
     }
     else {
-      LOGGER.warn("S3 access currently not supported");
-      return null;
+      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
+      group = ZarrGroup.open(s3fs);
     }
     return group.getAttributes();
   }
 
   public Map<String, Object> getArrayAttr(String path) throws IOException, FormatException {
     ZarrArray array = null;
-    if (!path.toLowerCase().contains("s3:")) {
+    if (s3fs == null) {
       array = ZarrArray.open(path);
     }
     else {
-      LOGGER.warn("S3 access currently not supported");
-      return null;
+      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
+      array = ZarrArray.open(s3fs);
     }
     return array.getAttributes();
   }
 
   public Set<String> getGroupKeys(String path) throws IOException, FormatException {
     ZarrGroup group = null;
-    if (!path.toLowerCase().contains("s3:")) {
+    if (s3fs == null) {
       group = ZarrGroup.open(path);
     }
     else {
-      LOGGER.warn("S3 access currently not supported");
-      return null;
+      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
+      group = ZarrGroup.open(s3fs);
     }
     return group.getGroupKeys();
   }
 
   public Set<String> getArrayKeys(String path) throws IOException, FormatException {
     ZarrGroup group = null;
-    if (!path.toLowerCase().contains("s3:")) {
+    if (s3fs == null) {
       group = ZarrGroup.open(path);
     }
     else {
-      LOGGER.warn("S3 access currently not supported");
-      return null;
+      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
+      group = ZarrGroup.open(s3fs);
     }
     return group.getArrayKeys();
   }
@@ -247,6 +249,9 @@ implements ZarrService  {
   public void close() throws IOException {
     zarrArray = null;
     currentId = null;
+    if (s3fs != null) {
+      s3fs.close();
+    }
   }
 
   @Override
@@ -358,5 +363,12 @@ implements ZarrService  {
     create(id, meta, chunks, Compression.NONE);
   }
 
+  private String stripZarrRoot(String path) {
+    return path.substring(path.indexOf(".zarr")+5);
+  }
+  
+  private String getZarrRoot(String path) {
+    return path.substring(0, path.indexOf(".zarr")+5);
+  }
 
 }
