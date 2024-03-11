@@ -447,7 +447,7 @@ public class ZarrReader extends FormatReader {
    * @param size of the shape required by jzarr
    * @return a 5D shape to be used within the reader
    */
-  private int[] getOriginalShape(int [] shape5D, int size) {
+  private static int[] getOriginalShape(int [] shape5D, int size) {
     int [] shape = new int[size];
     int shape5DIndex = 4;
     for (int s = shape.length - 1; s >= 0; s--) {
@@ -1147,6 +1147,7 @@ public class ZarrReader extends FormatReader {
     optionsList.add(LIST_PIXELS_KEY);
     optionsList.add(QUICK_READ_KEY);
     optionsList.add(INCLUDE_LABELS_KEY);
+    optionsList.add(ALT_STORE_KEY);
     return optionsList;
   }
 
@@ -1240,5 +1241,105 @@ public class ZarrReader extends FormatReader {
         }
       }
     }
+  }
+  
+  public static byte[] openPlane(String path, byte[] buf) throws FormatException, IOException {
+    String rootPath = path.substring(0, path.indexOf(".zarr") + 5);
+    String altPath = loadAltStoreOption(rootPath);
+    if (altPath == null) altPath = rootPath;
+    ZarrService service = new JZarrServiceImpl(altPath);
+    openZarr(path, service);
+    int [] shape = {1, 1, 1, 1, 1};
+    int [] zarrShape = service.getShape();
+    shape[4] = zarrShape[zarrShape.length - 1];
+    shape[3] = zarrShape[zarrShape.length - 2];
+    int zarrArrayShapeSize = zarrShape.length;
+    if (zarrArrayShapeSize < 5) {
+      shape = getOriginalShape(shape, zarrArrayShapeSize);
+    }
+    int [] offsets = {0, 0, 0, 0, 0};
+    Object image = service.readBytes(shape, offsets);
+    int w = shape[4];
+    int h = shape[3];
+    System.out.println("Success: Read image");
+    boolean little = service.isLittleEndian();
+    int bpp = FormatTools.getBytesPerPixel(service.getPixelType());
+    if (image instanceof byte[]) {
+      byte [] data = (byte []) image;
+      for (int i = 0; i < data.length; i++) {
+        DataTools.unpackBytes(data[i], buf, i, 1, little);
+      }
+    }
+    else if (image instanceof short[]) {
+      short[] data = (short[]) image;
+      for (int row = 0; row < h; row++) {
+        int base = row * w * bpp;
+        for (int i = 0; i < w; i++) {
+          DataTools.unpackBytes(data[(row * w) + i], buf, base + 2 * i, 2, little);
+        }
+      }
+    }
+    else if (image instanceof int[]) {
+      int[] data = (int[]) image;
+      for (int row = 0; row < h; row++) {
+        int base = row * w * bpp;
+        for (int i = 0; i < w; i++) {
+          DataTools.unpackBytes(data[(row * w) + i], buf, base + 4 * i, 4, little);
+        }
+      }
+    }
+    else if (image instanceof float[]) {
+      float[] data = (float[]) image;
+      for (int row = 0; row < h; row++) {
+        int base = row * w * bpp;
+        for (int i = 0; i < w; i++) {
+          int value = Float.floatToIntBits(data[(row * w) + i]);
+          DataTools.unpackBytes(value, buf, base + 4 * i, 4, little);
+        }
+      }
+    }
+    else if (image instanceof double[]) {
+      double[] data = (double[]) image;
+      for (int row = 0; row < h; row++) {
+        int base = row * w * bpp;
+        for (int i = 0; i < w; i++) {
+          long value = Double.doubleToLongBits(data[(row * w) + i]);
+          DataTools.unpackBytes(value, buf, base + 8 * i, 8, little);
+        }
+      }
+    }
+    return buf;
+  }
+  
+  private static void openZarr(String path, ZarrService service) {
+    try {
+      String canonicalPath = new Location(path).getCanonicalPath();
+      LOGGER.debug("Opening zarr statically at path: {}", canonicalPath);
+      service.open(canonicalPath);
+    } catch (IOException | FormatException e) {
+      e.printStackTrace();
+    }
+  }
+
+  /**
+   * Reloads the bfoptions file statically, only reading the value for the alterntiave file store
+   */
+  private static String loadAltStoreOption(String id) {
+    String optionsFile = DynamicMetadataOptions.getMetadataOptionsFile(id);
+    if (optionsFile != null) {
+      MetadataOptions options = new DynamicMetadataOptions();
+      if (options != null && options instanceof DynamicMetadataOptions) {
+        try {
+          ArrayList<String> optionsList = new ArrayList<String>();
+          optionsList.add(ALT_STORE_KEY);
+          ((DynamicMetadataOptions) options).loadOptions(optionsFile, optionsList);
+          return ((DynamicMetadataOptions) options).get(
+              ALT_STORE_KEY, ALT_STORE_DEFAULT);
+        } catch (Exception e) {
+          LOGGER.warn("Exception while attempting to read metadata options file", e);
+        }
+      }
+    }
+    return ALT_STORE_DEFAULT;
   }
 }
