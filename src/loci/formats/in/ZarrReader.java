@@ -1261,7 +1261,6 @@ public class ZarrReader extends FormatReader {
     Object image = service.readBytes(shape, offsets);
     int w = shape[4];
     int h = shape[3];
-    System.out.println("Success: Read image");
     boolean little = service.isLittleEndian();
     int bpp = FormatTools.getBytesPerPixel(service.getPixelType());
     if (image instanceof byte[]) {
