@@ -54,7 +54,7 @@
     <dependency>
       <groupId>ome</groupId>
       <artifactId>formats-api</artifactId>
-      <version>7.0.0</version>
+      <version>7.1.0</version>
     </dependency>
     <dependency>
       <groupId>dev.zarr</groupId>
@@ -81,14 +81,14 @@
       <!-- NB: We want this, despite warning from dependency:analyze. -->
       <groupId>xalan</groupId>
       <artifactId>serializer</artifactId>
-      <version>2.7.2</version>
+      <version>2.7.3</version>
       <scope>runtime</scope>
     </dependency>
     <dependency>
       <!-- NB: We want this, despite warning from dependency:analyze. -->
       <groupId>xalan</groupId>
       <artifactId>xalan</artifactId>
-      <version>2.7.2</version>
+      <version>2.7.3</version>
       <scope>runtime</scope>
     </dependency>
 
@@ -188,9 +188,9 @@
   </build>
   <distributionManagement>
     <repository>
-      <id>ome.staging</id>
-      <name>OME Staging Repository</name>
-      <url>https://artifacts.openmicroscopy.org/artifactory/ome.staging</url>
+      <id>ome.releases</id>
+      <name>OME Releases Repository</name>
+      <url>https://artifacts.openmicroscopy.org/artifactory/ome.releases</url>
     </repository>
     <snapshotRepository>
       <id>ome.snapshots</id>
