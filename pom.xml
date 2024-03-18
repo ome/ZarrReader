@@ -60,6 +60,20 @@
       <groupId>dev.zarr</groupId>
       <artifactId>jzarr</artifactId>
       <version>0.4.2</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-databind</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-annotations</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -91,9 +105,11 @@
       <version>2.7.3</version>
       <scope>runtime</scope>
     </dependency>
-
-
-
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+      <version>2.17.100</version>
+    </dependency>
   </dependencies>
 
   <properties>
