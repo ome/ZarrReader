@@ -1,5 +1,21 @@
 package loci.formats;
 
+import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.internal.StaticCredentialsProvider;
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.ListObjectsRequest;
+import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.AnonymousAWSCredentials;
+import com.amazonaws.client.builder.AwsClientBuilder;
+
 /*-
  * #%L
  * Implementation of Bio-Formats readers for the next-generation file formats
@@ -33,19 +49,6 @@ import com.bc.zarr.ZarrConstants;
 import com.bc.zarr.ZarrUtils;
 import com.bc.zarr.storage.Store;
 
-import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.AwsCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.ResponseInputStream;
-import software.amazon.awssdk.core.sync.ResponseTransformer;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3Configuration;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectResponse;
-import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsResponse;
-import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.io.File;
 import java.io.IOException;
@@ -71,7 +74,7 @@ import org.slf4j.LoggerFactory;
 public class S3FileSystemStore implements Store {
 
     private Path root;
-    S3Client client;
+    AmazonS3 client;
     protected static final Logger LOGGER =
         LoggerFactory.getLogger(S3FileSystemStore.class);
 
@@ -95,22 +98,12 @@ public class S3FileSystemStore implements Store {
     private void setupClient() {
       String[] pathSplit = root.toString().split(File.separator);
       String endpoint = "https://" + pathSplit[1] + File.separator;
-      URI endpoint_uri;
       try {   
-        endpoint_uri = new URI(endpoint);
-        final S3Configuration config = S3Configuration.builder()
-          .pathStyleAccessEnabled(true)
-          .build();
-        AwsCredentials credentials = AnonymousCredentialsProvider.create().resolveCredentials();
-        client = S3Client.builder()
-          .endpointOverride(endpoint_uri)
-          .serviceConfiguration(config)
-          .region(Region.EU_WEST_1) // Ignored but required by the client
-          .credentialsProvider(StaticCredentialsProvider.create(credentials)).build();
-
-      } catch (URISyntaxException e) {
-        LOGGER.info( "Syntax error generating URI from endpoint: " + endpoint);
-        e.printStackTrace();
+        client = AmazonS3ClientBuilder.standard()
+          .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, "auto"))
+          .withPathStyleAccessEnabled(true)
+          .withRegion(Regions.DEFAULT_REGION) // Ignored but required by the client
+          .withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials())).build();
       } catch (Exception e) {
         LOGGER.info("Exception caught while constructing S3 client");
         e.printStackTrace();
@@ -120,7 +113,7 @@ public class S3FileSystemStore implements Store {
     
     public void close() {
       if (client != null) {
-        client.close();
+        client.shutdown();
       }
     }
 
@@ -136,8 +129,8 @@ public class S3FileSystemStore implements Store {
         String key2 = root.toString().substring(root.toString().indexOf(pathSplit[3]), root.toString().length()) + File.separator + key;
 
         try {   
-          GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucketName).key(key2).build();
-          ResponseInputStream<GetObjectResponse> responseStream = client.getObject(getRequest, ResponseTransformer.toInputStream());
+          S3Object o = client.getObject(bucketName, key2);
+          S3ObjectInputStream responseStream = o.getObjectContent();
           return responseStream;
         } catch (Exception e) {
           LOGGER.info( "Unable to locate or access key: " + key2);
@@ -220,32 +213,29 @@ public class S3FileSystemStore implements Store {
       String bucketName =  pathSplit[2];
       String key2 = root.toString().substring(root.toString().indexOf(pathSplit[3]), root.toString().length());
 
-      ListObjectsRequest listObjectsRequest = ListObjectsRequest
-          .builder()
-          .bucket(bucketName)
-          .prefix(key2)
-          .build()
+      ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
+          .withBucketName(bucketName)
+          .withPrefix(key2)
         ;
 
-      ListObjectsResponse listObjectsResponse = null;
+      ObjectListing listObjectsResponse = null;
       String lastKey = null;
         
       do {
         if ( listObjectsResponse != null ) {
-          listObjectsRequest = listObjectsRequest.toBuilder()
-             .marker(lastKey)
-               .build()
+          listObjectsRequest = listObjectsRequest
+             .withMarker(lastKey)
           ; 
         }
 
         listObjectsResponse = client.listObjects(listObjectsRequest); 
-        List<S3Object> objects = listObjectsResponse.contents();
+        List<S3ObjectSummary> objects = listObjectsResponse.getObjectSummaries();
 
         // Iterate over results
-        ListIterator<S3Object> iterVals = objects.listIterator();
+        ListIterator<S3ObjectSummary> iterVals = objects.listIterator();
         while (iterVals.hasNext()) {
-          S3Object object = (S3Object) iterVals.next();
-          String k = object.key();
+          S3ObjectSummary object = (S3ObjectSummary) iterVals.next();
+          String k = object.getKey();
           if (k.contains(suffix)) {
             String key = k.substring(k.indexOf(key2) + key2.length() + 1, k.indexOf(suffix));
             if (!key.isEmpty()) {
@@ -266,32 +256,29 @@ public class S3FileSystemStore implements Store {
       String bucketName =  pathSplit[2];
       String key2 = root.toString().substring(root.toString().indexOf(pathSplit[3]), root.toString().length());
 
-      ListObjectsRequest listObjectsRequest = ListObjectsRequest
-          .builder()
-          .bucket(bucketName)
-          .prefix(key2)
-          .build()
+      ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
+          .withBucketName(bucketName)
+          .withPrefix(key2)
         ;
 
-      ListObjectsResponse listObjectsResponse = null;
+      ObjectListing listObjectsResponse = null;
       String lastKey = null;
         
       do {
         if ( listObjectsResponse != null ) {
-          listObjectsRequest = listObjectsRequest.toBuilder()
-             .marker(lastKey)
-               .build()
+          listObjectsRequest = listObjectsRequest
+             .withMarker(lastKey)
           ; 
         }
 
         listObjectsResponse = client.listObjects(listObjectsRequest); 
-        List<S3Object> objects = listObjectsResponse.contents();
+        List<S3ObjectSummary> objects = listObjectsResponse.getObjectSummaries();
 
         // Iterate over results
-        ListIterator<S3Object> iterVals = objects.listIterator();
+        ListIterator<S3ObjectSummary> iterVals = objects.listIterator();
         while (iterVals.hasNext()) {
-          S3Object object = (S3Object) iterVals.next();
-          String k = object.key();
+          S3ObjectSummary object = (S3ObjectSummary) iterVals.next();
+          String k = object.getKey();
           String key = k.substring(k.indexOf(key2) + key2.length() + 1, k.length());
           if (!key.isEmpty()) {
             keys.add(key.substring(0, key.length()-1));
