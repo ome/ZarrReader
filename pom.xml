@@ -109,6 +109,12 @@
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk-s3</artifactId>
       <version>1.12.659</version>
+      <exclusions>
+       <exclusion>
+         <groupId>commons-logging</groupId>
+         <artifactId>commons-logging</artifactId>
+       </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
 
