@@ -102,7 +102,6 @@ public class S3FileSystemStore implements Store {
         client = AmazonS3ClientBuilder.standard()
           .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, "auto"))
           .withPathStyleAccessEnabled(true)
-          .withRegion(Regions.DEFAULT_REGION) // Ignored but required by the client
           .withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials())).build();
       } catch (Exception e) {
         LOGGER.info("Exception caught while constructing S3 client");
