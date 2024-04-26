@@ -1,5 +1,7 @@
 package loci.formats.services;
 
+import java.io.File;
+
 /*-
  * #%L
  * Implementation of Bio-Formats readers for the next-generation file formats
@@ -79,7 +81,13 @@ implements ZarrService  {
   public JZarrServiceImpl(String root) {
       checkClassDependency(com.bc.zarr.ZarrArray.class);
       if (root != null && (root.toLowerCase().contains("s3:") || root.toLowerCase().contains("s3."))) {
-        s3fs = new S3FileSystemStore(Paths.get(root));
+        String[] pathSplit = root.toString().split(File.separator);
+        if (!S3FileSystemStore.ENDPPOINT_PROTOCOL.contains(pathSplit[0].toLowerCase())) {
+          s3fs = new S3FileSystemStore(Paths.get(root));
+        }
+        else {
+          LOGGER.warn("Zarr Reader is not using S3FileSystemStore as this is currently for use with S3 configured with a https endpoint");
+        }
       }
   }
 
@@ -89,7 +97,7 @@ implements ZarrService  {
     if (s3fs == null) {
       zarrArray = ZarrArray.open(file);
     }
-    else {      
+    else {
       s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(file));
       zarrArray = ZarrArray.open(s3fs);
     }
