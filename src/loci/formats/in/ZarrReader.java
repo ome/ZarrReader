@@ -191,7 +191,7 @@ public class ZarrReader extends FormatReader {
     Location omeMetaFile = new Location( zarrRootPath + File.separator + "OME", "METADATA.ome.xml" );
     String canonicalPath = new Location(zarrRootPath).getCanonicalPath();
 
-    initializeZarrService(canonicalPath);
+    initializeZarrService();
     reloadOptionsFile(zarrRootPath);
 
     ArrayList<String> omeSeriesOrder = new ArrayList<String>();
@@ -462,14 +462,14 @@ public class ZarrReader extends FormatReader {
   public void reopenFile() throws IOException {
     try {
       String canonicalPath = new Location(currentId).getCanonicalPath();
-      initializeZarrService(canonicalPath);
+      initializeZarrService();
     }
     catch (FormatException e) {
       throw new IOException(e);
     }
   }
 
-  protected void initializeZarrService(String rootPath) throws IOException, FormatException {
+  protected void initializeZarrService() throws IOException, FormatException {
     zarrService = new JZarrServiceImpl(altStore());
     openZarr();
   }
