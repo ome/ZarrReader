@@ -44,7 +44,7 @@ public class ZarrReaderMock extends ZarrReader {
   }
 
   @Override
-  protected void initializeZarrService(String rootPath) throws IOException, FormatException {
+  protected void initializeZarrService() throws IOException, FormatException {
     zarrService = mockService;
   }
 }
