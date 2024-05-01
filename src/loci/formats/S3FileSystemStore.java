@@ -75,7 +75,7 @@ public class S3FileSystemStore implements Store {
 
     private Path root;
     AmazonS3 client;
-    public static final String ENDPPOINT_PROTOCOL= "https://";
+    public static final String ENDPOINT_PROTOCOL= "https://";
     protected static final Logger LOGGER =
         LoggerFactory.getLogger(S3FileSystemStore.class);
 
@@ -98,7 +98,7 @@ public class S3FileSystemStore implements Store {
 
     private void setupClient() {
       String[] pathSplit = root.toString().split(File.separator);
-      String endpoint = ENDPPOINT_PROTOCOL + pathSplit[1] + File.separator;
+      String endpoint = ENDPOINT_PROTOCOL + pathSplit[1] + File.separator;
       try {   
         client = AmazonS3ClientBuilder.standard()
           .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(endpoint, "auto"))
