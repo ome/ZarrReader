@@ -82,7 +82,7 @@ implements ZarrService  {
       checkClassDependency(com.bc.zarr.ZarrArray.class);
       if (root != null && (root.toLowerCase().contains("s3:") || root.toLowerCase().contains("s3."))) {
         String[] pathSplit = root.toString().split(File.separator);
-        if (!S3FileSystemStore.ENDPOINT_PROTOCOL.contains(pathSplit[0].toLowerCase())) {
+        if (S3FileSystemStore.ENDPOINT_PROTOCOL.contains(pathSplit[0].toLowerCase())) {
           s3fs = new S3FileSystemStore(Paths.get(root));
         }
         else {
