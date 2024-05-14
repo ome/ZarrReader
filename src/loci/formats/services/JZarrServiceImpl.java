@@ -372,4 +372,8 @@ implements ZarrService  {
     }
     return array;
   }
+  
+  public boolean usingS3FileSystemStore() {
+    return s3fs != null;
+  }
 }
