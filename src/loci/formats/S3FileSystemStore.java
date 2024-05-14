@@ -123,8 +123,11 @@ public class S3FileSystemStore implements Store {
 
     @Override
     public InputStream getInputStream(String key) throws IOException {
+        // Get the base bucket name from splitting the root path and removing the prefixed protocol and end-point
         String[] pathSplit = root.toString().split(File.separator);
         String bucketName =  pathSplit[2];
+        
+        // Append the desired key onto the remaining prefix
         String key2 = root.toString().substring(root.toString().indexOf(pathSplit[3]), root.toString().length()) + File.separator + key;
 
         try {   
@@ -205,10 +208,12 @@ public class S3FileSystemStore implements Store {
 
     private TreeSet<String> getKeysFor(String suffix) throws IOException {
       TreeSet<String> keys = new TreeSet<String>();
-      
+
+      // Get the base bucket name from splitting the root path and removing the prefixed protocol and end-point
       String[] pathSplit = root.toString().split(File.separator);
-      
       String bucketName =  pathSplit[2];
+      
+      // Append the desired key onto the remaining prefix
       String key2 = root.toString().substring(root.toString().indexOf(pathSplit[3]), root.toString().length());
 
       ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
@@ -249,11 +254,13 @@ public class S3FileSystemStore implements Store {
     
     public ArrayList<String> getFiles() throws IOException {
       ArrayList<String> keys = new ArrayList<String>();
-      
+
+      // Get the base bucket name from splitting the root path and removing the prefixed protocol and end-point
       String[] pathSplit = root.toString().split(File.separator);
       String bucketName =  pathSplit[2];
+      
+      // Append the desired key onto the remaining prefix
       String key2 = root.toString().substring(root.toString().indexOf(pathSplit[3]), root.toString().length());
-
       ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
           .withBucketName(bucketName)
           .withPrefix(key2)
