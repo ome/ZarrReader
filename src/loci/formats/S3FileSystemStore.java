@@ -105,8 +105,7 @@ public class S3FileSystemStore implements Store {
           .withPathStyleAccessEnabled(true)
           .withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials())).build();
       } catch (Exception e) {
-        LOGGER.info("Exception caught while constructing S3 client");
-        e.printStackTrace();
+        LOGGER.info("Exception caught while constructing S3 client", e);
       } 
       
     }
@@ -133,8 +132,7 @@ public class S3FileSystemStore implements Store {
           S3ObjectInputStream responseStream = o.getObjectContent();
           return responseStream;
         } catch (Exception e) {
-          LOGGER.info( "Unable to locate or access key: " + key2);
-          e.printStackTrace();
+          LOGGER.info( "Unable to locate or access key: " + key2, e);
         }
 
       return null;
