@@ -251,48 +251,4 @@ public class S3FileSystemStore implements Store {
       
       return keys;
     }
-    
-    public ArrayList<String> getFiles() throws IOException {
-      ArrayList<String> keys = new ArrayList<String>();
-
-      // Get the base bucket name from splitting the root path and removing the prefixed protocol and end-point
-      String[] pathSplit = root.toString().split(File.separator);
-      String bucketName =  pathSplit[2];
-      
-      // Append the desired key onto the remaining prefix
-      String key2 = root.toString().substring(root.toString().indexOf(pathSplit[3]), root.toString().length());
-      ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
-          .withBucketName(bucketName)
-          .withPrefix(key2)
-        ;
-
-      ObjectListing listObjectsResponse = null;
-      String lastKey = null;
-        
-      do {
-        if ( listObjectsResponse != null ) {
-          listObjectsRequest = listObjectsRequest
-             .withMarker(lastKey)
-          ; 
-        }
-
-        listObjectsResponse = client.listObjects(listObjectsRequest); 
-        List<S3ObjectSummary> objects = listObjectsResponse.getObjectSummaries();
-
-        // Iterate over results
-        ListIterator<S3ObjectSummary> iterVals = objects.listIterator();
-        while (iterVals.hasNext()) {
-          S3ObjectSummary object = (S3ObjectSummary) iterVals.next();
-          String k = object.getKey();
-          String key = k.substring(k.indexOf(key2) + key2.length() + 1, k.length());
-          if (!key.isEmpty()) {
-            keys.add(key.substring(0, key.length()-1));
-          }
-          lastKey = k;
-        }
-      } while ( listObjectsResponse.isTruncated() );
-      return keys;
-    }
-    
-    
 }
