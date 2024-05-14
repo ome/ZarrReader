@@ -1242,26 +1242,4 @@ public class ZarrReader extends FormatReader {
       }
     }
   }
-
-  /**
-   * Reloads the bfoptions file statically, only reading the value for the alterntiave file store
-   */
-  private static String loadAltStoreOption(String id) {
-    String optionsFile = DynamicMetadataOptions.getMetadataOptionsFile(id);
-    if (optionsFile != null) {
-      MetadataOptions options = new DynamicMetadataOptions();
-      if (options != null && options instanceof DynamicMetadataOptions) {
-        try {
-          ArrayList<String> optionsList = new ArrayList<String>();
-          optionsList.add(ALT_STORE_KEY);
-          ((DynamicMetadataOptions) options).loadOptions(optionsFile, optionsList);
-          return ((DynamicMetadataOptions) options).get(
-              ALT_STORE_KEY, ALT_STORE_DEFAULT);
-        } catch (Exception e) {
-          LOGGER.warn("Exception while attempting to read metadata options file", e);
-        }
-      }
-    }
-    return ALT_STORE_DEFAULT;
-  }
 }
