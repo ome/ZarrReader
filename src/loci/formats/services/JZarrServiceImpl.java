@@ -94,13 +94,7 @@ implements ZarrService  {
   @Override
   public void open(String file) throws IOException, FormatException {
     currentId = file;
-    if (s3fs == null) {
-      zarrArray = ZarrArray.open(file);
-    }
-    else {
-      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(file));
-      zarrArray = ZarrArray.open(s3fs);
-    }
+    zarrArray = getArray(file);
   }
   
   public void open(String id, ZarrArray array) {
@@ -109,15 +103,7 @@ implements ZarrService  {
   }
   
   public Map<String, Object> getGroupAttr(String path) throws IOException, FormatException {
-    ZarrGroup group = null;
-    if (s3fs == null) {
-      group = ZarrGroup.open(path);
-    }
-    else {
-      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
-      group = ZarrGroup.open(s3fs);
-    }
-    return group.getAttributes();
+    return getGroup(path).getAttributes();
   }
 
   public Map<String, Object> getArrayAttr(String path) throws IOException, FormatException {
@@ -129,31 +115,15 @@ implements ZarrService  {
       s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
       array = ZarrArray.open(s3fs);
     }
-    return array.getAttributes();
+    return getArray(path).getAttributes();
   }
 
   public Set<String> getGroupKeys(String path) throws IOException, FormatException {
-    ZarrGroup group = null;
-    if (s3fs == null) {
-      group = ZarrGroup.open(path);
-    }
-    else {
-      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
-      group = ZarrGroup.open(s3fs);
-    }
-    return group.getGroupKeys();
+    return getGroup(path).getGroupKeys();
   }
 
   public Set<String> getArrayKeys(String path) throws IOException, FormatException {
-    ZarrGroup group = null;
-    if (s3fs == null) {
-      group = ZarrGroup.open(path);
-    }
-    else {
-      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
-      group = ZarrGroup.open(s3fs);
-    }
-    return group.getArrayKeys();
+    return getGroup(path).getArrayKeys();
   }
 
   public DataType getZarrPixelType(int pixType) {
@@ -379,4 +349,27 @@ implements ZarrService  {
     return path.substring(0, path.indexOf(".zarr")+5);
   }
 
+  private ZarrGroup getGroup(String path) throws IOException {
+    ZarrGroup group = null;
+    if (s3fs == null) {
+      group = ZarrGroup.open(path);
+    }
+    else {
+      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
+      group = ZarrGroup.open(s3fs);
+    }
+    return group;
+  }
+  
+  private ZarrArray getArray(String path) throws IOException {
+    ZarrArray array = null;
+    if (s3fs == null) {
+      array = ZarrArray.open(path);
+    }
+    else {
+      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
+      array = ZarrArray.open(s3fs);
+    }
+    return array;
+  }
 }
