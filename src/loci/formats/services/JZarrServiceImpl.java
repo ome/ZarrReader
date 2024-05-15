@@ -107,14 +107,6 @@ implements ZarrService  {
   }
 
   public Map<String, Object> getArrayAttr(String path) throws IOException, FormatException {
-    ZarrArray array = null;
-    if (s3fs == null) {
-      array = ZarrArray.open(path);
-    }
-    else {
-      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
-      array = ZarrArray.open(s3fs);
-    }
     return getArray(path).getAttributes();
   }
 
