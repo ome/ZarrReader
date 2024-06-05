@@ -1,5 +1,7 @@
 package loci.formats.services;
 
+import java.io.File;
+
 /*-
  * #%L
  * Implementation of Bio-Formats readers for the next-generation file formats
@@ -54,6 +56,7 @@ import com.bc.zarr.ZarrGroup;
 import loci.common.services.AbstractService;
 import loci.formats.FormatException;
 import loci.formats.FormatTools;
+import loci.formats.S3FileSystemStore;
 import loci.formats.meta.IPyramidStore;
 import loci.formats.meta.MetadataRetrieve;
 import ucar.ma2.InvalidRangeException;
@@ -65,6 +68,7 @@ implements ZarrService  {
   public static final String NO_ZARR_MSG = "JZARR is required to read Zarr files.";
 
   // -- Fields --
+  S3FileSystemStore s3fs;
   ZarrArray zarrArray;
   String currentId;
   Compressor zlibComp = CompressorFactory.create("zlib", "level", 8);  // 8 = compression level .. valid values 0 .. 9
@@ -76,21 +80,21 @@ implements ZarrService  {
    */
   public JZarrServiceImpl(String root) {
       checkClassDependency(com.bc.zarr.ZarrArray.class);
-      if (root != null && root.toLowerCase().contains("s3:")) {
-        LOGGER.warn("S3 access currently not supported");
+      if (root != null && (root.toLowerCase().contains("s3:") || root.toLowerCase().contains("s3."))) {
+        String[] pathSplit = root.toString().split(File.separator);
+        if (S3FileSystemStore.ENDPOINT_PROTOCOL.contains(pathSplit[0].toLowerCase())) {
+          s3fs = new S3FileSystemStore(Paths.get(root));
+        }
+        else {
+          LOGGER.warn("Zarr Reader is not using S3FileSystemStore as this is currently for use with S3 configured with a https endpoint");
+        }
       }
   }
 
   @Override
   public void open(String file) throws IOException, FormatException {
     currentId = file;
-    // TODO: Update s3 location identification
-    if (!file.toLowerCase().contains("s3:")) {
-      zarrArray = ZarrArray.open(file);
-    }
-    else {
-      LOGGER.warn("S3 access currently not supported");
-    }
+    zarrArray = getArray(file);
   }
   
   public void open(String id, ZarrArray array) {
@@ -99,51 +103,19 @@ implements ZarrService  {
   }
   
   public Map<String, Object> getGroupAttr(String path) throws IOException, FormatException {
-    ZarrGroup group = null;
-    if (!path.toLowerCase().contains("s3:")) {
-      group = ZarrGroup.open(path);
-    }
-    else {
-      LOGGER.warn("S3 access currently not supported");
-      return null;
-    }
-    return group.getAttributes();
+    return getGroup(path).getAttributes();
   }
 
   public Map<String, Object> getArrayAttr(String path) throws IOException, FormatException {
-    ZarrArray array = null;
-    if (!path.toLowerCase().contains("s3:")) {
-      array = ZarrArray.open(path);
-    }
-    else {
-      LOGGER.warn("S3 access currently not supported");
-      return null;
-    }
-    return array.getAttributes();
+    return getArray(path).getAttributes();
   }
 
   public Set<String> getGroupKeys(String path) throws IOException, FormatException {
-    ZarrGroup group = null;
-    if (!path.toLowerCase().contains("s3:")) {
-      group = ZarrGroup.open(path);
-    }
-    else {
-      LOGGER.warn("S3 access currently not supported");
-      return null;
-    }
-    return group.getGroupKeys();
+    return getGroup(path).getGroupKeys();
   }
 
   public Set<String> getArrayKeys(String path) throws IOException, FormatException {
-    ZarrGroup group = null;
-    if (!path.toLowerCase().contains("s3:")) {
-      group = ZarrGroup.open(path);
-    }
-    else {
-      LOGGER.warn("S3 access currently not supported");
-      return null;
-    }
-    return group.getArrayKeys();
+    return getGroup(path).getArrayKeys();
   }
 
   public DataType getZarrPixelType(int pixType) {
@@ -247,6 +219,9 @@ implements ZarrService  {
   public void close() throws IOException {
     zarrArray = null;
     currentId = null;
+    if (s3fs != null) {
+      s3fs.close();
+    }
   }
 
   @Override
@@ -358,5 +333,39 @@ implements ZarrService  {
     create(id, meta, chunks, Compression.NONE);
   }
 
+  private String stripZarrRoot(String path) {
+    return path.substring(path.indexOf(".zarr")+5);
+  }
+  
+  private String getZarrRoot(String path) {
+    return path.substring(0, path.indexOf(".zarr")+5);
+  }
 
+  private ZarrGroup getGroup(String path) throws IOException {
+    ZarrGroup group = null;
+    if (s3fs == null) {
+      group = ZarrGroup.open(path);
+    }
+    else {
+      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
+      group = ZarrGroup.open(s3fs);
+    }
+    return group;
+  }
+  
+  private ZarrArray getArray(String path) throws IOException {
+    ZarrArray array = null;
+    if (s3fs == null) {
+      array = ZarrArray.open(path);
+    }
+    else {
+      s3fs.updateRoot(getZarrRoot(s3fs.getRoot()) + stripZarrRoot(path));
+      array = ZarrArray.open(s3fs);
+    }
+    return array;
+  }
+  
+  public boolean usingS3FileSystemStore() {
+    return s3fs != null;
+  }
 }

@@ -97,6 +97,8 @@ public class ZarrReader extends FormatReader {
   public static final String LIST_PIXELS_ENV_KEY = "OME_ZARR_LIST_PIXELS";
   public static final String INCLUDE_LABELS_KEY = "omezarr.include_labels";
   public static final boolean INCLUDE_LABELS_DEFAULT = false;
+  public static final String ALT_STORE_KEY = "omezarr.alt_store";
+  public static final String ALT_STORE_DEFAULT = null;
   protected transient ZarrService zarrService;
   private ArrayList<String> arrayPaths = new ArrayList<String>();
   
@@ -189,7 +191,7 @@ public class ZarrReader extends FormatReader {
     Location omeMetaFile = new Location( zarrRootPath + File.separator + "OME", "METADATA.ome.xml" );
     String canonicalPath = new Location(zarrRootPath).getCanonicalPath();
 
-    initializeZarrService(canonicalPath);
+    initializeZarrService();
     reloadOptionsFile(zarrRootPath);
 
     ArrayList<String> omeSeriesOrder = new ArrayList<String>();
@@ -445,7 +447,7 @@ public class ZarrReader extends FormatReader {
    * @param size of the shape required by jzarr
    * @return a 5D shape to be used within the reader
    */
-  private int[] getOriginalShape(int [] shape5D, int size) {
+  private static int[] getOriginalShape(int [] shape5D, int size) {
     int [] shape = new int[size];
     int shape5DIndex = 4;
     for (int s = shape.length - 1; s >= 0; s--) {
@@ -460,15 +462,15 @@ public class ZarrReader extends FormatReader {
   public void reopenFile() throws IOException {
     try {
       String canonicalPath = new Location(currentId).getCanonicalPath();
-      initializeZarrService(canonicalPath);
+      initializeZarrService();
     }
     catch (FormatException e) {
       throw new IOException(e);
     }
   }
 
-  protected void initializeZarrService(String rootPath) throws IOException, FormatException {
-    zarrService = new JZarrServiceImpl(rootPath);
+  protected void initializeZarrService() throws IOException, FormatException {
+    zarrService = new JZarrServiceImpl(altStore());
     openZarr();
   }
 
@@ -1145,6 +1147,7 @@ public class ZarrReader extends FormatReader {
     optionsList.add(LIST_PIXELS_KEY);
     optionsList.add(QUICK_READ_KEY);
     optionsList.add(INCLUDE_LABELS_KEY);
+    optionsList.add(ALT_STORE_KEY);
     return optionsList;
   }
 
@@ -1199,6 +1202,19 @@ public class ZarrReader extends FormatReader {
           INCLUDE_LABELS_KEY, INCLUDE_LABELS_DEFAULT);
     }
     return INCLUDE_LABELS_DEFAULT;
+  }
+  
+  /**
+   * Used to provide the location of an alternative file store where the data is located
+   * @return String representing the root path of the alternative file store or null if no alternative location exist
+   */
+  public String altStore() {
+    MetadataOptions options = getMetadataOptions();
+    if (options instanceof DynamicMetadataOptions) {
+      return ((DynamicMetadataOptions) options).get(
+          ALT_STORE_KEY, ALT_STORE_DEFAULT);
+    }
+    return ALT_STORE_DEFAULT;
   }
 
   private boolean systemEnvListPixels() {
