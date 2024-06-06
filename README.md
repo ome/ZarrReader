@@ -69,6 +69,6 @@ The list of available options are below:
 | --- | --- | --- |
 | `omezarr.quick_read` | false | Improves the read performance by limiting the number of files that are parsed. This assumes that the shape and resolution count of all images in a plate remains constant  |
 | `omezarr.save_annotations` | false | Determines if all the Zarr JSON metadata should be stored as XML annotations in the OME Model |
-| `omezarr.list_pixels` | false | Used to decide if getUsedFiles should list all of the pixel chunks |
+| `omezarr.list_pixels` | true | Used to decide if getUsedFiles should list all of the pixel chunks |
 | `omezarr.include_labels` | false | Used to decide if images stored in the label sub folder should be included in the list of images |
 | `omezarr.alt_store` | null | Used to provide the location of an alternative file store where the data is located |
