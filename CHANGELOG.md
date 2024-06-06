@@ -1,3 +1,16 @@
+0.5.0 (June 2024)
+-----------------
+
+- Updated GitHub Actions to v4 and now deploying snapshot on tag [#80](https://github.com/ome/ZarrReader/pull/80)
+- Added Java 17 to the test matrix [#81](https://github.com/ome/ZarrReader/pull/81)
+- Bumped the Bio-Formats version to 7.1.0 [#71](https://github.com/ome/ZarrReader/pull/71)
+- Introduced S3FileSystemStore and a new option (omezarr.alt_store) for reading directly from S3 using  [#82](https://github.com/ome/ZarrReader/pull/82)
+
+0.4.1 (February 2024)
+---------------------
+
+- Reduced the number of fields saved in memo files [#78](https://github.com/ome/ZarrReader/pull/78)
+
 0.4.0 (December 2023)
 ---------------------
 
