@@ -5,6 +5,7 @@
 - Added Java 17 to the test matrix [#81](https://github.com/ome/ZarrReader/pull/81)
 - Bumped the Bio-Formats version to 7.1.0 [#71](https://github.com/ome/ZarrReader/pull/71)
 - Introduced S3FileSystemStore and a new option (omezarr.alt_store) for reading directly from S3 [#82](https://github.com/ome/ZarrReader/pull/82)
+- Updated handling and parsing of acquisition metadata [#75](https://github.com/ome/ZarrReader/pull/75)
 
 0.4.1 (February 2024)
 ---------------------
