@@ -1116,6 +1116,9 @@ public class ZarrReader extends FormatReader {
     if (val == null) {
       return null;
     }
+    if (val instanceof Integer) {
+      return ((Integer) val).doubleValue();
+    }
     return val.doubleValue();
   }
 
@@ -1204,7 +1207,7 @@ public class ZarrReader extends FormatReader {
     }
     return QUICK_READ_DEFAULT;
   }
- 
+
   /**
    * Used to decide if images stored in the label sub folder should be included in the list of images
    * @return boolean true if images in the label folder should be included, default is false
