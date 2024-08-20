@@ -38,7 +38,7 @@ and adding the dependency:
 
 ### Releases
 
-Release versions of OMEZarrReader are also available directly from the [OME artifactory](https://artifacts.openmicroscopy.org/artifactory/webapp/browserepo.html?0&pathId=ome.releases:ome/OMEZarrReader)
+Release versions of OMEZarrReader are also available directly from the [OME artifactory](https://artifacts.openmicroscopy.org/ui/repos/tree/General/ome.releases/ome/OMEZarrReader)
 
 ### Bio-Formats tools
 
