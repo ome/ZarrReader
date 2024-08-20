@@ -1,3 +1,8 @@
+0.5.2 (July 2024)
+-----------------
+
+- Bumped the Bio-Formats API version to 7.3.1 [#87](https://github.com/ome/ZarrReader/pull/91)
+  
 0.5.1 (June 2024)
 -----------------
 
