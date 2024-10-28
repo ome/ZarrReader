@@ -5,7 +5,7 @@ package loci.formats.in;
  * #%L
  * Implementation of Bio-Formats readers for the next-generation file formats
  * %%
- * Copyright (C) 2020 - 2022 Open Microscopy Environment
+ * Copyright (C) 2020 - 2024 Open Microscopy Environment
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -930,7 +930,9 @@ public class ZarrReader extends FormatReader {
       for (int i = 0; i < channels.size(); i++) {
         Map<String, Object> channel = (Map<String, Object>) channels.get(i);
         Boolean channelActive = (Boolean) channel.get("active");
-        Double channelCoefficient = (Double) channel.get("coefficient");
+        Double channelCoefficient = channel.get("coefficient") instanceof Double ?
+                ((Double) channel.get("coefficient")) :
+                ((Integer) channel.get("coefficient")).doubleValue();
         String channelColor = (String) channel.get("color");
         String channelFamily = (String) channel.get("family");
         Boolean channelInverted = (Boolean) channel.get("inverted");
