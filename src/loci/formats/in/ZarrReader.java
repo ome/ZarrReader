@@ -44,7 +44,6 @@ import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -68,8 +67,6 @@ import loci.formats.FormatException;
 import loci.formats.FormatReader;
 import loci.formats.FormatTools;
 import loci.formats.MetadataTools;
-import loci.formats.in.DynamicMetadataOptions;
-import loci.formats.in.MetadataOptions;
 import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.JZarrServiceImpl;
@@ -77,8 +74,6 @@ import ome.xml.meta.MetadataConverter;
 import ome.xml.meta.MetadataRoot;
 import ome.xml.model.MapAnnotation;
 import ome.xml.model.OME;
-import ome.xml.model.Plate;
-import ome.xml.model.Screen;
 import ome.xml.model.StructuredAnnotations;
 import ome.xml.model.primitives.NonNegativeInteger;
 import ome.xml.model.primitives.PositiveInteger;
@@ -1127,6 +1122,7 @@ public class ZarrReader extends FormatReader {
   public String[] getUsedFiles(boolean noPixels) {
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
+    int rootPathLength = zarrRootPath.length();
     ArrayList<String> usedFiles = new ArrayList<String>();
     reloadOptionsFile(zarrRootPath);
 
@@ -1134,12 +1130,17 @@ public class ZarrReader extends FormatReader {
     boolean includeLabels = includeLabels();
     try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
       paths.filter(Files::isRegularFile) 
-      .forEach(path -> {if ((!skipPixels && includeLabels) || 
-          (!skipPixels && !includeLabels && !path.toString().toLowerCase().contains("labels")) ||
-          (skipPixels && includeLabels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))) ||
-          (skipPixels && !includeLabels &&  !path.toString().toLowerCase().contains("labels") &&(path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
-        usedFiles.add(path.toFile().getAbsolutePath());
-      });
+      .forEach(path -> {
+        if (
+         (!skipPixels && includeLabels) ||
+         (!skipPixels && !includeLabels && (path.toString().toLowerCase().lastIndexOf("labels")<rootPathLength) ||
+         (skipPixels && includeLabels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))) ||
+         (skipPixels && !includeLabels && (path.toString().toLowerCase().lastIndexOf("labels")<rootPathLength) &&(path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml")))))
+          {
+            usedFiles.add(path.toFile().getAbsolutePath());
+          }
+      }
+      );
     } catch (IOException e) {
       e.printStackTrace();
     }
