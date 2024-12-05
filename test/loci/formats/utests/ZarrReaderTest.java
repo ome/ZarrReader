@@ -205,4 +205,85 @@ public class ZarrReaderTest {
     assertEquals(3, reader.getSeriesCount());
   }
   
+  @Test
+  public void testParseOmeroMetadataWithIntegerValues() {
+    Map<String, Object> omeroMetadata = new HashMap<>();
+    omeroMetadata.put("id", 1);
+    omeroMetadata.put("name", "Test Image");
+    omeroMetadata.put("version", "0.1");
+
+    ArrayList<Object> channels = new ArrayList<>();
+    Map<String, Object> channel = new HashMap<>();
+    channel.put("active", true);
+    channel.put("coefficient", 1);
+    channel.put("color", "FFFFFF");
+    channel.put("family", "linear");
+    channel.put("inverted", false);
+    channel.put("label", "Channel 1");
+
+    Map<String, Object> window = new HashMap<>();
+    window.put("start", 0);
+    window.put("end", 255);
+    window.put("min", 0);
+    window.put("max", 255);
+    channel.put("window", window);
+
+    channels.add(channel);
+    omeroMetadata.put("channels", channels);
+
+    Map<String, Object> rdefs = new HashMap<>();
+    rdefs.put("defaultT", 0);
+    rdefs.put("defaultZ", 0);
+    rdefs.put("model", "color");
+    omeroMetadata.put("rdefs", rdefs);
+
+    Map<String, Object> test = new HashMap<>();
+    test.put("omero", omeroMetadata);
+    try {
+      reader.parseOmeroMetadata(test);
+    } catch (IOException | FormatException e) {
+      fail("Unexpected exception while parsing Omero metadata with Integer values");
+    }
+  }
+
+  @Test
+  public void testParseOmeroMetadataWithDoubleValues() {
+    Map<String, Object> omeroMetadata = new HashMap<>();
+    omeroMetadata.put("id", 1);
+    omeroMetadata.put("name", "Test Image");
+    omeroMetadata.put("version", "0.1");
+
+    ArrayList<Object> channels = new ArrayList<>();
+    Map<String, Object> channel = new HashMap<>();
+    channel.put("active", true);
+    channel.put("coefficient", 1.0);
+    channel.put("color", "FFFFFF");
+    channel.put("family", "linear");
+    channel.put("inverted", false);
+    channel.put("label", "Channel 1");
+
+    Map<String, Object> window = new HashMap<>();
+    window.put("start", 0.0);
+    window.put("end", 255.0);
+    window.put("min", 0.0);
+    window.put("max", 255.0);
+    channel.put("window", window);
+
+    channels.add(channel);
+    omeroMetadata.put("channels", channels);
+
+    Map<String, Object> rdefs = new HashMap<>();
+    rdefs.put("defaultT", 0);
+    rdefs.put("defaultZ", 0);
+    rdefs.put("model", "color");
+    omeroMetadata.put("rdefs", rdefs);
+
+    Map<String, Object> test = new HashMap<>();
+    test.put("omero", omeroMetadata);
+    try {
+      reader.parseOmeroMetadata(test);
+    } catch (IOException | FormatException e) {
+      fail("Unexpected exception while parsing Omero metadata with Double values");
+    }
+  }
 }
