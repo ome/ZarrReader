@@ -44,7 +44,6 @@ import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -68,8 +67,6 @@ import loci.formats.FormatException;
 import loci.formats.FormatReader;
 import loci.formats.FormatTools;
 import loci.formats.MetadataTools;
-import loci.formats.in.DynamicMetadataOptions;
-import loci.formats.in.MetadataOptions;
 import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.JZarrServiceImpl;
@@ -77,8 +74,6 @@ import ome.xml.meta.MetadataConverter;
 import ome.xml.meta.MetadataRoot;
 import ome.xml.model.MapAnnotation;
 import ome.xml.model.OME;
-import ome.xml.model.Plate;
-import ome.xml.model.Screen;
 import ome.xml.model.StructuredAnnotations;
 import ome.xml.model.primitives.NonNegativeInteger;
 import ome.xml.model.primitives.PositiveInteger;
@@ -205,7 +200,7 @@ public class ZarrReader extends FormatReader {
     int attrIndex = 0;
     if (attr != null && !attr.isEmpty()) {
       parseResolutionCount(zarrRootPath, "", attr);
-      parseOmeroMetadata(zarrRootPath, attr);
+      parseOmeroMetadata(attr);
       if (saveAnnotations()) {
         String jsonAttr;
         try {
@@ -920,7 +915,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseOmeroMetadata(String root, Map<String, Object> attr) throws IOException, FormatException {
+  public void parseOmeroMetadata(Map<String, Object> attr) throws IOException, FormatException {
     Map<String, Object> omeroMetadata = (Map<String, Object>) attr.get("omero");
     if (omeroMetadata != null) {
       Integer id = (Integer) omeroMetadata.get("id");
