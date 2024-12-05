@@ -1,4 +1,3 @@
-
 package loci.formats.in;
 
 /*-
@@ -898,7 +897,7 @@ public class ZarrReader extends FormatReader {
         for (int p = 0; p < properties.size(); p++) {
           Map<String, Object> prop = (Map<String, Object>) properties.get(p);
           Integer labelValue = (Integer) prop.get("label-value");
-          Double area = (Double) prop.get("area (pixels)");
+          Number area = (Number) prop.get("area (pixels)");
           String propClass = (String) prop.get("class");
         }
       }
@@ -925,17 +924,17 @@ public class ZarrReader extends FormatReader {
       for (int i = 0; i < channels.size(); i++) {
         Map<String, Object> channel = (Map<String, Object>) channels.get(i);
         Boolean channelActive = (Boolean) channel.get("active");
-        Double channelCoefficient = (Double) channel.get("coefficient");
+        Number channelCoefficient = (Number) channel.get("coefficient");
         String channelColor = (String) channel.get("color");
         String channelFamily = (String) channel.get("family");
         Boolean channelInverted = (Boolean) channel.get("inverted");
         String channelLabel = (String) channel.get("label");
         Map<String, Object> window = (Map<String, Object>)channel.get("window");
         if (window != null) {
-          Double windowStart = getDouble(window, "start");
-          Double windowEnd = getDouble(window, "end");
-          Double windowMin = getDouble(window, "min");
-          Double windowMax = getDouble(window, "max");
+          Number windowStart = getDouble(window, "start");
+          Number windowEnd = getDouble(window, "end");
+          Number windowMin = getDouble(window, "min");
+          Number windowMax = getDouble(window, "max");
         }
       }
       Map<String, Object> rdefs = (Map<String, Object>)omeroMetadata.get("rdefs");
@@ -1107,7 +1106,7 @@ public class ZarrReader extends FormatReader {
     return sb.reverse().toString();
   }
 
-  private Double getDouble(Map<String, Object> src, String key) {
+  private Number getDouble(Map<String, Object> src, String key) {
     Number val = (Number) src.get(key);
     if (val == null) {
       return null;
