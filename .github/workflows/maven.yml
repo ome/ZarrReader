@@ -27,11 +27,12 @@ jobs:
       - name: Build
         run: mvn ${{ env.maven_commands }}
       - name: Upload JAR as artifact
-        if: matrix.os == 'ubuntu-latest' && matrix.java == '1.8'
+        if: matrix.os == 'ubuntu-latest' && matrix.java == '8'
         uses: actions/upload-artifact@v4
         with:
           name: ZarrReader
           path: target/*.jar
+          if-no-files-found: error
   deploy_snapshots:
     if: ${{ github.ref == 'refs/heads/main' && github.repository_owner == 'ome' }}
     needs: build
