@@ -1,4 +1,3 @@
-
 package loci.formats.in;
 
 /*-
@@ -44,7 +43,6 @@ import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -68,8 +66,6 @@ import loci.formats.FormatException;
 import loci.formats.FormatReader;
 import loci.formats.FormatTools;
 import loci.formats.MetadataTools;
-import loci.formats.in.DynamicMetadataOptions;
-import loci.formats.in.MetadataOptions;
 import loci.formats.meta.MetadataStore;
 import loci.formats.ome.OMEXMLMetadata;
 import loci.formats.services.JZarrServiceImpl;
@@ -77,8 +73,6 @@ import ome.xml.meta.MetadataConverter;
 import ome.xml.meta.MetadataRoot;
 import ome.xml.model.MapAnnotation;
 import ome.xml.model.OME;
-import ome.xml.model.Plate;
-import ome.xml.model.Screen;
 import ome.xml.model.StructuredAnnotations;
 import ome.xml.model.primitives.NonNegativeInteger;
 import ome.xml.model.primitives.PositiveInteger;
@@ -205,7 +199,7 @@ public class ZarrReader extends FormatReader {
     int attrIndex = 0;
     if (attr != null && !attr.isEmpty()) {
       parseResolutionCount(zarrRootPath, "", attr);
-      parseOmeroMetadata(zarrRootPath, attr);
+      parseOmeroMetadata(attr);
       if (saveAnnotations()) {
         String jsonAttr;
         try {
@@ -903,7 +897,7 @@ public class ZarrReader extends FormatReader {
         for (int p = 0; p < properties.size(); p++) {
           Map<String, Object> prop = (Map<String, Object>) properties.get(p);
           Integer labelValue = (Integer) prop.get("label-value");
-          Double area = (Double) prop.get("area (pixels)");
+          Number area = (Number) prop.get("area (pixels)");
           String propClass = (String) prop.get("class");
         }
       }
@@ -920,7 +914,7 @@ public class ZarrReader extends FormatReader {
     }
   }
 
-  private void parseOmeroMetadata(String root, Map<String, Object> attr) throws IOException, FormatException {
+  public void parseOmeroMetadata(Map<String, Object> attr) throws IOException, FormatException {
     Map<String, Object> omeroMetadata = (Map<String, Object>) attr.get("omero");
     if (omeroMetadata != null) {
       Integer id = (Integer) omeroMetadata.get("id");
@@ -930,17 +924,17 @@ public class ZarrReader extends FormatReader {
       for (int i = 0; i < channels.size(); i++) {
         Map<String, Object> channel = (Map<String, Object>) channels.get(i);
         Boolean channelActive = (Boolean) channel.get("active");
-        Double channelCoefficient = (Double) channel.get("coefficient");
+        Number channelCoefficient = (Number) channel.get("coefficient");
         String channelColor = (String) channel.get("color");
         String channelFamily = (String) channel.get("family");
         Boolean channelInverted = (Boolean) channel.get("inverted");
         String channelLabel = (String) channel.get("label");
         Map<String, Object> window = (Map<String, Object>)channel.get("window");
         if (window != null) {
-          Double windowStart = getDouble(window, "start");
-          Double windowEnd = getDouble(window, "end");
-          Double windowMin = getDouble(window, "min");
-          Double windowMax = getDouble(window, "max");
+          Number windowStart = getDouble(window, "start");
+          Number windowEnd = getDouble(window, "end");
+          Number windowMin = getDouble(window, "min");
+          Number windowMax = getDouble(window, "max");
         }
       }
       Map<String, Object> rdefs = (Map<String, Object>)omeroMetadata.get("rdefs");
@@ -1112,7 +1106,7 @@ public class ZarrReader extends FormatReader {
     return sb.reverse().toString();
   }
 
-  private Double getDouble(Map<String, Object> src, String key) {
+  private Number getDouble(Map<String, Object> src, String key) {
     Number val = (Number) src.get(key);
     if (val == null) {
       return null;
@@ -1125,6 +1119,7 @@ public class ZarrReader extends FormatReader {
   public String[] getUsedFiles(boolean noPixels) {
     FormatTools.assertId(currentId, true, 1);
     String zarrRootPath = currentId.substring(0, currentId.indexOf(".zarr") + 5);
+    int rootPathLength = zarrRootPath.length();
     ArrayList<String> usedFiles = new ArrayList<String>();
     reloadOptionsFile(zarrRootPath);
 
@@ -1132,12 +1127,17 @@ public class ZarrReader extends FormatReader {
     boolean includeLabels = includeLabels();
     try (Stream<Path> paths = Files.walk(Paths.get(zarrRootPath), FileVisitOption.FOLLOW_LINKS)) {
       paths.filter(Files::isRegularFile) 
-      .forEach(path -> {if ((!skipPixels && includeLabels) || 
-          (!skipPixels && !includeLabels && !path.toString().toLowerCase().contains("labels")) ||
-          (skipPixels && includeLabels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))) ||
-          (skipPixels && !includeLabels &&  !path.toString().toLowerCase().contains("labels") &&(path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))))
-        usedFiles.add(path.toFile().getAbsolutePath());
-      });
+      .forEach(path -> {
+        if (
+         (!skipPixels && includeLabels) ||
+         (!skipPixels && !includeLabels && (path.toString().toLowerCase().lastIndexOf("labels")<rootPathLength) ||
+         (skipPixels && includeLabels && (path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml"))) ||
+         (skipPixels && !includeLabels && (path.toString().toLowerCase().lastIndexOf("labels")<rootPathLength) &&(path.endsWith(".zgroup") || path.endsWith(".zattrs") || path.endsWith(".xml")))))
+          {
+            usedFiles.add(path.toFile().getAbsolutePath());
+          }
+      }
+      );
     } catch (IOException e) {
       e.printStackTrace();
     }
