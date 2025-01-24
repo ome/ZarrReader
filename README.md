@@ -5,12 +5,6 @@ specificaiton. It uses the [JZarr](https://github.com/zarr-developers/jzarr) lib
 
 ## Installation
 
-### Fiji Update Site
-
-The OMEZarrReader has been added to the Bio-Formats development update site
-(https://sites.imagej.net/Bio-Formats). Be aware that activating it will use
-a newer version of Bio-Formats.
-
 ### Maven
 
 The jar from this repository can be used in your own code by enabling the OME artifactory repositry:
@@ -38,7 +32,7 @@ and adding the dependency:
 
 ### Releases
 
-Release versions of OMEZarrReader are also available directly from the [OME artifactory](https://artifacts.openmicroscopy.org/ui/repos/tree/General/ome.releases/ome/OMEZarrReader)
+Release versions of OMEZarrReader are available directly from the [OME artifactory](https://artifacts.openmicroscopy.org/ui/repos/tree/General/ome.releases/ome/OMEZarrReader)
 
 ### Bio-Formats tools
 
