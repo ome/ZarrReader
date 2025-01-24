@@ -68,7 +68,7 @@ jobs:
           MAVEN_PASSWORD: ${{ secrets.CI_DEPLOY_PASS }}
 
   deploy_tags:
-    if: startsWith(github.ref, 'refs/tags')
+    if: startsWith(github.ref, 'refs/tags') && github.repository_owner == 'ome'
     needs: build
     runs-on: ubuntu-latest
     steps:
