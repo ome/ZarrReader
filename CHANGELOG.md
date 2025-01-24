@@ -1,3 +1,11 @@
+0.6.0 (January 2025)
+--------------------
+
+- Fix `` ClassCastException`` when parsing metadata and  class cast and labels issue [#100](https://github.com/ome/ZarrReader/pull/100)
+- Create a release and upload the ``jar-with-dependencies`` jar when a tag is pushed [#105](https://github.com/ome/ZarrReader/pull/105)
+- Upload the ``jar-with-dependencies`` jar to every action build [#102](https://github.com/ome/ZarrReader/pull/102)
+  
+
 0.5.2 (July 2024)
 -----------------
 
