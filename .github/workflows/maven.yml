@@ -100,3 +100,17 @@ jobs:
         env:
           MAVEN_USERNAME: ${{ secrets.CI_DEPLOY_USER }}
           MAVEN_PASSWORD: ${{ secrets.CI_DEPLOY_PASS }}
+      - name: Download artifacts from build
+        uses: actions/download-artifact@v4
+        with:
+          name: ZarrReader
+      - name: List artifacts
+        run: ls -R
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: OMEZarrReader*jar-with-dependencies.jar
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true
