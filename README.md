@@ -1,15 +1,10 @@
 # OMEZarrReader
+[![Actions Status](https://github.com/ome/ZarrReader/workflows/Maven/badge.svg)](https://github.com/ome/ZarrReader/actions)
 
 The OMEZarrReader provides support for reading data following the [NGFF](https://ngff.openmicroscopy.org/)
-specificaiton. It uses the [JZarr](https://github.com/zarr-developers/jzarr) library from [Maven Central](https://central.sonatype.com/artifact/dev.zarr/jzarr/) for accessing the underlying Zarr data.
+specification. It uses the [JZarr](https://github.com/zarr-developers/jzarr) library from [Maven Central](https://central.sonatype.com/artifact/dev.zarr/jzarr/) for accessing the underlying Zarr data.
 
 ## Installation
-
-### Fiji Update Site
-
-The OMEZarrReader has been added to the Bio-Formats development update site
-(https://sites.imagej.net/Bio-Formats). Be aware that activating it will use
-a newer version of Bio-Formats.
 
 ### Maven
 
@@ -38,7 +33,7 @@ and adding the dependency:
 
 ### Releases
 
-Release versions of OMEZarrReader are also available directly from the [OME artifactory](https://artifacts.openmicroscopy.org/ui/repos/tree/General/ome.releases/ome/OMEZarrReader)
+Release versions of OMEZarrReader are available directly from the [OME artifactory](https://artifacts.openmicroscopy.org/ui/repos/tree/General/ome.releases/ome/OMEZarrReader)
 
 ### Bio-Formats tools
 
@@ -57,9 +52,9 @@ The new default behaviour of the `omezarr.include_labels` option introduced in v
 
 **Note:** If you had imported data with labels into OMERO using version v0.3 or earlier then you will need to ensure that the `omezarr.include_labels` option is set to true. You can do this by adding a `bfoptions` file to the fileset. This will require running psql commands to update the database to include the new `bfoptions` file. If you need help with this scenario then please contact us on [image.sc](https://forum.image.sc/).
 
-In version v0.5.0 a new option `omezarr.alt_store` was added. This allows for the source of an alternative file store to be configured. Setting the option means the pixel data to be read from a different source than originally used when initialising the reader. The initial implementation was intended for use with the [IDR] (https://idr.openmicroscopy.org/), allowing IDR to read data directly from an S3 location. The current implementation only allows for S3 access when using a public https endpoint with unauthenticated access using anonymous credentials. A more complete, general purpose implementation will follow in a future release.
+In version v0.5.0 a new option `omezarr.alt_store` was added. This allows for the source of an alternative file store to be configured. Setting the option means the pixel data to be read from a different source than originally used when initialising the reader. The initial implementation was intended for use with the [IDR](https://idr.openmicroscopy.org/), allowing IDR to read data directly from an S3 location. The current implementation only allows for S3 access when using a public https endpoint with unauthenticated access using anonymous credentials. A more complete, general purpose implementation will follow in a future release.
 
-An example of how this could be used would be to download locally a public dataset such as [6001240.zarr] (https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0062A/6001240.zarr). Setting the option as below, either via the API or using a `bfoptions` file, will allow you to call setID on the local file but have the pixel data read from the public S3 endpoint.
+An example of how this could be used would be to download locally a public dataset such as [6001240.zarr](https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0062A/6001240.zarr). Setting the option as below, either via the API or using a `bfoptions` file, will allow you to call setID on the local file but have the pixel data read from the public S3 endpoint.
  
 ```
 omezarr.alt_store = https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0062A/6001240.zarr
