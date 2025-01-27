@@ -2,7 +2,7 @@
 [![Actions Status](https://github.com/ome/ZarrReader/workflows/Maven/badge.svg)](https://github.com/ome/ZarrReader/actions)
 
 The OMEZarrReader provides support for reading data following the [NGFF](https://ngff.openmicroscopy.org/)
-specificaiton. It uses the [JZarr](https://github.com/zarr-developers/jzarr) library from [Maven Central](https://central.sonatype.com/artifact/dev.zarr/jzarr/) for accessing the underlying Zarr data.
+specification. It uses the [JZarr](https://github.com/zarr-developers/jzarr) library from [Maven Central](https://central.sonatype.com/artifact/dev.zarr/jzarr/) for accessing the underlying Zarr data.
 
 ## Installation
 
