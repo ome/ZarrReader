@@ -4,14 +4,10 @@ The functionality has been overtaken by the [OMERO Zarr Pixel Buffer](https://gi
 for the current release please see the [Glencoe software repository](https://github.com/glencoesoftware/omero-zarr-pixel-buffer/releases).
 
 If you already have images in OMERO which require the ZarrReader, you don't need to re-import them. You 
-can enable them for the OMERO Zarr Pixel Buffer by adding an ExternalInfo object with the following content:
-- `entityType`: `com.glencoesoftware.ngff:multiscales`
-- `entityId`: `4` 
-- `lsid`: Path to the image
-  
-(see [omero-zarr-pixel-buffer#usage](https://github.com/glencoesoftware/omero-zarr-pixel-buffer#usage))
+can enable them for the OMERO Zarr Pixel Buffer by adding an ExternalInfo object,
+see [omero-zarr-pixel-buffer#usage](https://github.com/glencoesoftware/omero-zarr-pixel-buffer#usage))
 
-This can be done with the OMERO CLI:
+This can be done with the OMERO CLI, for example:
 
 ```bash
 > omero obj ext-info-set Image:1234 4 "com.glencoesoftware.ngff:multiscales" "/data/image.zarr/0"
