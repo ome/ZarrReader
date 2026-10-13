@@ -1,6 +1,6 @@
 # This repository has been archived and is no longer maintained
 
-The functionality has been overtaken by the [OMERO Zarr Pixel Buffer](https://github.com/ome/omero-zarrpixelbuffer);
+The functionality has been overtaken by the [OMERO Zarr Pixel Buffer](https://github.com/ome/omero-zarr-pixel-buffer);
 for the current release please see the [Glencoe software repository](https://github.com/glencoesoftware/omero-zarr-pixel-buffer/releases).
 
 If you already have images in OMERO which require the ZarrReader, you don't need to re-import them. You 
