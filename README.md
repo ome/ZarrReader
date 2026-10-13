@@ -7,14 +7,15 @@ If you already have images in OMERO which require the ZarrReader, you don't need
 can enable them for the OMERO Zarr Pixel Buffer by adding an ExternalInfo object with the following content:
 - `entityType`: `com.glencoesoftware.ngff:multiscales`
 - `entityId`: `4` 
-- `lsid`: Path to the image 
+- `lsid`: Path to the image
+  
+(see [omero-zarr-pixel-buffer#usage](https://github.com/glencoesoftware/omero-zarr-pixel-buffer#usage))
 
-For example using the OMERO CLI:
+This can be done with the OMERO CLI:
 
 ```bash
-> omero obj ext-info-set Image:1234 4 "com.glencoesoftware.ngff:multiscales" "/data/image.zarr"
+> omero obj ext-info-set Image:1234 4 "com.glencoesoftware.ngff:multiscales" "/data/image.zarr/0"
 ```
-(if the zarr has multiple series, you need to specify the series index, e.g. "/data/image.zarr/0")
 
 
 # OMEZarrReader
