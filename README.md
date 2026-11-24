@@ -1,5 +1,7 @@
 # This repository has been archived and is no longer maintained
 
+## Replacement for OMERO.server
+
 The functionality has been overtaken by the [OMERO Zarr Pixel Buffer](https://github.com/ome/omero-zarr-pixel-buffer);
 for the current release please see the [Glencoe software repository](https://github.com/glencoesoftware/omero-zarr-pixel-buffer/releases).
 
@@ -13,6 +15,17 @@ This can be done with the OMERO CLI, for example:
 > omero obj ext-info-set Image:1234 4 "com.glencoesoftware.ngff:multiscales" "/data/image.zarr/0"
 ```
 
+## Replacement for Fiji / QuPath
+
+Fiji/ImageJ uses the [ome-zarr-fiji-java Plugin](https://github.com/BioImageTools/ome-zarr-fiji-java).
+
+ome.zarr support in QuPath uses the non-ImageJ specific parts of ome-zarr-fiji-java Plugin from version 0.8 onwards.
+
+<br>
+
+---
+
+<br>
 
 # OMEZarrReader
 [![Actions Status](https://github.com/ome/ZarrReader/workflows/Maven/badge.svg)](https://github.com/ome/ZarrReader/actions)
